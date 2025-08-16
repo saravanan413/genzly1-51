@@ -1,0 +1,352 @@
+import { 
+  doc, 
+  writeBatch,
+  serverTimestamp,
+  getDoc,
+  deleteDoc,
+  setDoc,
+  collection
+} from 'firebase/firestore';
+import { db } from '../../config/firebase';
+import { createFollowNotification, createFollowRequestNotification, removeNotification } from '../notifications';
+
+export const followUser = async (currentUserId: string, targetUserId: string) => {
+  if (currentUserId === targetUserId) {
+    console.log('Cannot follow yourself');
+    return false;
+  }
+
+  try {
+    console.log('=== STARTING FOLLOW OPERATION ===');
+    console.log('Current user:', currentUserId);
+    console.log('Target user:', targetUserId);
+    
+    // Get user profiles first to ensure they exist
+    const [currentUserDoc, targetUserDoc] = await Promise.all([
+      getDoc(doc(db, 'users', currentUserId)),
+      getDoc(doc(db, 'users', targetUserId))
+    ]);
+    
+    if (!currentUserDoc.exists() || !targetUserDoc.exists()) {
+      console.error('User documents not found');
+      return false;
+    }
+
+    const currentUserData = currentUserDoc.data();
+    const targetUserData = targetUserDoc.data();
+
+    console.log('Target user privacy setting:', { isPrivate: targetUserData.isPrivate });
+
+    // Check if target user has private account
+    if (targetUserData.isPrivate === true) {
+      console.log('=== TARGET USER HAS PRIVATE ACCOUNT ===');
+      console.log('Sending follow request...');
+      
+      // Create follow request document at /users/{targetUserId}/followRequests/{currentUserId}
+      const followRequestRef = doc(db, 'users', targetUserId, 'followRequests', currentUserId);
+      await setDoc(followRequestRef, {
+        from: currentUserId, // Use 'from' as per your requirement
+        to: targetUserId, // Use 'to' as per your requirement
+        uid: currentUserId, // Keep for compatibility
+        username: currentUserData.username || 'Unknown',
+        displayName: currentUserData.displayName || 'Unknown User',
+        avatar: currentUserData.avatar || null,
+        timestamp: serverTimestamp(),
+        status: 'pending'
+      });
+      
+      console.log('Follow request document created at path: /users/' + targetUserId + '/followRequests/' + currentUserId);
+      
+      // Create notification for follow request at /users/{targetUserId}/notifications/items/{notificationId}
+      console.log('Creating follow request notification...');
+      try {
+        await createFollowRequestNotification(targetUserId, currentUserId);
+        console.log('Follow request notification created successfully');
+      } catch (error) {
+        console.error('Error creating follow request notification:', error);
+        // Don't fail the whole operation if notification fails
+      }
+      
+      return true;
+    }
+
+    console.log('=== PUBLIC ACCOUNT FOLLOW ===');
+    console.log('User data loaded, proceeding with public follow operation');
+
+    // Use batch write for atomic operations with proper error handling
+    const batch = writeBatch(db);
+
+    // Create document at /users/{targetUserId}/followers/{currentUserId}
+    const followersRef = doc(db, 'users', targetUserId, 'followers', currentUserId);
+    batch.set(followersRef, {
+      uid: currentUserId,
+      username: currentUserData.username || 'Unknown',
+      displayName: currentUserData.displayName || 'Unknown User',
+      avatar: currentUserData.avatar || null,
+      timestamp: serverTimestamp(),
+      createdAt: serverTimestamp()
+    });
+
+    // Create document at /users/{currentUserId}/following/{targetUserId}
+    const followingRef = doc(db, 'users', currentUserId, 'following', targetUserId);
+    batch.set(followingRef, {
+      uid: targetUserId,
+      username: targetUserData.username || 'Unknown',
+      displayName: targetUserData.displayName || 'Unknown User',
+      avatar: targetUserData.avatar || null,
+      timestamp: serverTimestamp(),
+      createdAt: serverTimestamp()
+    });
+
+    await batch.commit();
+    console.log('Batch commit successful');
+    
+    console.log('Creating follow notification...');
+    // Create follow notification for the followed user
+    try {
+      await createFollowNotification(targetUserId, currentUserId);
+      console.log('Follow notification created successfully');
+    } catch (error) {
+      console.error('Error creating follow notification:', error);
+      // Don't fail the whole operation if notification fails
+    }
+    
+    console.log('Public follow operation completed successfully');
+    return true;
+  } catch (error: any) {
+    console.error('=== ERROR IN FOLLOW OPERATION ===');
+    console.error('Error:', error);
+    console.error('Error code:', error.code);
+    console.error('Error message:', error.message);
+    return false;
+  }
+};
+
+export const unfollowUser = async (currentUserId: string, targetUserId: string) => {
+  if (currentUserId === targetUserId) {
+    console.error('Cannot unfollow yourself');
+    return false;
+  }
+
+  try {
+    console.log('Starting unfollow operation:', { currentUserId, targetUserId });
+    
+    // First, try to cancel any pending follow request
+    console.log('Attempting to cancel follow request...');
+    const followRequestRef = doc(db, 'users', targetUserId, 'followRequests', currentUserId);
+    const followRequestDoc = await getDoc(followRequestRef);
+    
+    if (followRequestDoc.exists()) {
+      console.log('Found pending follow request, deleting...');
+      await deleteDoc(followRequestRef);
+      
+      // Remove follow request notification
+      await removeNotification(targetUserId, currentUserId, 'follow_request');
+      console.log('Follow request cancelled successfully');
+      return true;
+    }
+    
+    // Define the document references we need to check and potentially delete
+    const followersRef = doc(db, 'users', targetUserId, 'followers', currentUserId);
+    const followingRef = doc(db, 'users', currentUserId, 'following', targetUserId);
+    
+    console.log('Checking document existence...');
+
+    // Check if the documents exist before trying to delete them
+    const [followersDoc, followingDoc] = await Promise.all([
+      getDoc(followersRef),
+      getDoc(followingRef)
+    ]);
+
+    console.log('Document existence check results:');
+    console.log('Followers doc exists:', followersDoc.exists());
+    console.log('Following doc exists:', followingDoc.exists());
+
+    // Use batch write for atomic operations
+    const batch = writeBatch(db);
+    let hasOperations = false;
+
+    // Delete from followers if it exists
+    if (followersDoc.exists()) {
+      console.log('Adding followers deletion to batch');
+      batch.delete(followersRef);
+      hasOperations = true;
+    }
+    
+    // Delete from following if it exists
+    if (followingDoc.exists()) {
+      console.log('Adding following deletion to batch');
+      batch.delete(followingRef);
+      hasOperations = true;
+    }
+
+    if (hasOperations) {
+      console.log('Committing batch operations...');
+      await batch.commit();
+      console.log('Unfollow operation completed successfully');
+    } else {
+      console.log('No follow relationship found to remove');
+    }
+    
+    console.log('Removing follow notification...');
+    // Remove follow notification
+    await removeNotification(targetUserId, currentUserId, 'follow');
+    console.log('Follow notification removed successfully');
+    
+    return true;
+  } catch (error: any) {
+    console.error('Error unfollowing user:', error);
+    return false;
+  }
+};
+
+export const acceptFollowRequest = async (currentUserId: string, requesterUserId: string) => {
+  try {
+    console.log('=== ACCEPTING FOLLOW REQUEST ===');
+    console.log('Current user (accepting):', currentUserId);
+    console.log('Requester:', requesterUserId);
+    
+    // Get user profiles
+    const [currentUserDoc, requesterUserDoc] = await Promise.all([
+      getDoc(doc(db, 'users', currentUserId)),
+      getDoc(doc(db, 'users', requesterUserId))
+    ]);
+
+    if (!currentUserDoc.exists() || !requesterUserDoc.exists()) {
+      console.error('User documents not found');
+      return false;
+    }
+
+    const currentUserData = currentUserDoc.data();
+    const requesterUserData = requesterUserDoc.data();
+
+    // Use batch write for atomic operations
+    const batch = writeBatch(db);
+
+    // Create follower relationship
+    const followersRef = doc(db, 'users', currentUserId, 'followers', requesterUserId);
+    batch.set(followersRef, {
+      uid: requesterUserId,
+      username: requesterUserData.username || 'Unknown',
+      displayName: requesterUserData.displayName || 'Unknown User',
+      avatar: requesterUserData.avatar || null,
+      timestamp: serverTimestamp(),
+      createdAt: serverTimestamp()
+    });
+
+    // Create following relationship
+    const followingRef = doc(db, 'users', requesterUserId, 'following', currentUserId);
+    batch.set(followingRef, {
+      uid: currentUserId,
+      username: currentUserData.username || 'Unknown',
+      displayName: currentUserData.displayName || 'Unknown User',
+      avatar: currentUserData.avatar || null,
+      timestamp: serverTimestamp(),
+      createdAt: serverTimestamp()
+    });
+
+    // Delete the follow request
+    const followRequestRef = doc(db, 'users', currentUserId, 'followRequests', requesterUserId);
+    batch.delete(followRequestRef);
+
+    await batch.commit();
+    console.log('Follow request accepted successfully');
+
+    // Remove follow request notification and create follow notification
+    await removeNotification(currentUserId, requesterUserId, 'follow_request');
+    await createFollowNotification(requesterUserId, currentUserId);
+
+    return true;
+  } catch (error: any) {
+    console.error('Error accepting follow request:', error);
+    return false;
+  }
+};
+
+export const rejectFollowRequest = async (currentUserId: string, requesterUserId: string) => {
+  try {
+    console.log('=== REJECTING FOLLOW REQUEST ===');
+    console.log('Current user (rejecting):', currentUserId);
+    console.log('Requester:', requesterUserId);
+    
+    // Delete the follow request
+    const followRequestRef = doc(db, 'users', currentUserId, 'followRequests', requesterUserId);
+    await deleteDoc(followRequestRef);
+    
+    // Remove follow request notification
+    await removeNotification(currentUserId, requesterUserId, 'follow_request');
+    
+    console.log('Follow request rejected successfully');
+    return true;
+  } catch (error: any) {
+    console.error('Error rejecting follow request:', error);
+    return false;
+  }
+};
+
+export const removeFollower = async (currentUserId: string, followerUserId: string) => {
+  if (currentUserId === followerUserId) {
+    console.error('Cannot remove yourself as follower');
+    return false;
+  }
+
+  try {
+    console.log('Starting remove follower operation:', { currentUserId, followerUserId });
+    console.log('Current user (who is removing):', currentUserId);
+    console.log('Follower user (being removed):', followerUserId);
+    
+    // Define the document references we need to check and potentially delete
+    const followersRef = doc(db, 'users', currentUserId, 'followers', followerUserId);
+    const followingRef = doc(db, 'users', followerUserId, 'following', currentUserId);
+    
+    console.log('Document references:');
+    console.log('Followers ref path:', followersRef.path);
+    console.log('Following ref path:', followingRef.path);
+
+    // Check if the documents exist before trying to delete them
+    const [followersDoc, followingDoc] = await Promise.all([
+      getDoc(followersRef),
+      getDoc(followingRef)
+    ]);
+
+    console.log('Document existence check results:');
+    console.log('Followers doc exists:', followersDoc.exists());
+    console.log('Following doc exists:', followingDoc.exists());
+
+    // Use batch write for atomic operations
+    const batch = writeBatch(db);
+    let hasOperations = false;
+
+    // Remove from current user's followers collection if it exists
+    if (followersDoc.exists()) {
+      console.log('Adding followers deletion to batch');
+      batch.delete(followersRef);
+      hasOperations = true;
+    }
+    
+    // Remove from follower's following collection if it exists
+    if (followingDoc.exists()) {
+      console.log('Adding following deletion to batch');
+      batch.delete(followingRef);
+      hasOperations = true;
+    }
+
+    if (hasOperations) {
+      console.log('Committing batch operations...');
+      await batch.commit();
+      console.log('Remove follower operation completed successfully');
+      return true;
+    } else {
+      console.log('No follower relationship found to remove');
+      return true; // Not an error - they weren't following anyway
+    }
+  } catch (error) {
+    console.error('Error removing follower:', error);
+    console.error('Error details:', {
+      code: error.code,
+      message: error.message,
+      stack: error.stack
+    });
+    return false;
+  }
+};
