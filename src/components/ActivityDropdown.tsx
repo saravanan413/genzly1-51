@@ -39,10 +39,10 @@ const ActivityDropdown: React.FC<ActivityDropdownProps> = ({ isOpen = false }) =
         return <Heart className="text-red-500" size={16} />;
       case 'comment':
         return <MessageCircle className="text-blue-500" size={16} />;
-      case 'follow':
-        return <UserPlus className="text-green-500" size={16} />;
       case 'follow_request':
         return <User className="text-blue-500" size={16} />;
+      case 'follow_accept':
+        return <UserPlus className="text-green-500" size={16} />;
       default:
         return <User className="text-gray-400" size={16} />;
     }
@@ -64,10 +64,8 @@ const ActivityDropdown: React.FC<ActivityDropdownProps> = ({ isOpen = false }) =
       if (notification.postId) {
         navigate(`/post/${notification.postId}`);
       }
-    } else if (notification.type === 'follow') {
+    } else if (notification.type === 'follow_accept') {
       navigate(`/user/${notification.senderId}`);
-    } else if (notification.type === 'message') {
-      navigate(`/chat/${notification.chatId}`);
     }
   };
 
@@ -110,7 +108,20 @@ const ActivityDropdown: React.FC<ActivityDropdownProps> = ({ isOpen = false }) =
           return (
             <div key={notification.id} className="p-2">
               <FollowRequestNotification
-                notification={notification}
+                notification={{
+                  id: notification.id,
+                  type: 'follow_request',
+                  from: notification.senderId,
+                  fromUserId: notification.senderId,
+                  fromUsername: notification.senderProfile?.username || 'Unknown',
+                  fromProfilePic: notification.senderProfile?.avatar,
+                  timestamp: notification.timestamp,
+                  status: 'pending',
+                  seen: notification.seen,
+                  receiverId: notification.receiverId,
+                  senderId: notification.senderId,
+                  senderProfile: notification.senderProfile
+                }}
                 currentUserId={currentUser.uid}
               />
             </div>
