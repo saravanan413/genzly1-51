@@ -5,7 +5,18 @@ import { Check, CheckCheck, Forward, Copy, Trash2, Flag } from 'lucide-react';
 import MessageReactions from './MessageReactions';
 import VoiceMessage from './VoiceMessage';
 import SharedContentMessage from './SharedContentMessage';
-import { SharedContent } from '../../types/chat';
+
+// Local SharedContent interface to match SharedContentMessage expectations
+interface LocalSharedContent {
+  type: 'post' | 'reel' | 'image' | 'video';
+  url?: string;
+  image?: string;
+  thumbnail?: string;
+  caption?: string;
+  username?: string;
+  avatar?: string;
+  name?: string;
+}
 
 export interface Message {
   id: string;
@@ -18,13 +29,13 @@ export interface Message {
   fileSize?: number;
   audioDuration?: number;
   seen?: boolean;
-  reactions?: { [userId: string]: string };
+  reactions?: { [emoji: string]: number };
   replyTo?: {
     messageId: string;
     text: string;
     senderName: string;
   };
-  sharedContent?: SharedContent;
+  sharedContent?: LocalSharedContent;
 }
 
 interface MessageItemProps {
@@ -39,7 +50,7 @@ interface MessageItemProps {
   onReply?: (message: Message) => void;
   onDelete?: (messageId: string) => void;
   onReport?: (messageId: string) => void;
-  onSharedContent?: (content: SharedContent) => void;
+  onSharedContent?: (content: LocalSharedContent) => void;
 }
 
 const MessageItem: React.FC<MessageItemProps> = ({
@@ -59,7 +70,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
 
-  const getProfilePictureUrl = (avatar?: string, username?: string): string => {
+  const getProfilePictureUrl = (avatar?: string): string => {
     if (avatar && avatar.trim() !== '') {
       return avatar;
     }
@@ -87,7 +98,8 @@ const MessageItem: React.FC<MessageItemProps> = ({
       return (
         <SharedContentMessage
           content={message.sharedContent}
-          onContentClick={onSharedContent}
+          isOwn={isOwnMessage}
+          onClick={onSharedContent}
         />
       );
     }
@@ -97,7 +109,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
         <VoiceMessage
           audioUrl={message.mediaUrl}
           duration={message.audioDuration || 0}
-          isOwnMessage={isOwnMessage}
+          isOwn={isOwnMessage}
         />
       );
     }
@@ -159,7 +171,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
     <div className={`flex gap-2 ${isOwnMessage ? 'justify-end' : 'justify-start'} group`}>
       {!isOwnMessage && showAvatar && (
         <img
-          src={getProfilePictureUrl(senderAvatar, senderName)}
+          src={getProfilePictureUrl(senderAvatar)}
           alt={senderName}
           className="w-8 h-8 rounded-full object-cover mt-1"
           onError={handleImageError}
@@ -207,9 +219,9 @@ const MessageItem: React.FC<MessageItemProps> = ({
 
         {message.reactions && Object.keys(message.reactions).length > 0 && (
           <MessageReactions
+            messageId={message.id}
             reactions={message.reactions}
-            onReact={onReact ? (emoji) => onReact(message.id, emoji) : undefined}
-            currentUserId={currentUserId}
+            onReact={onReact}
           />
         )}
       </div>

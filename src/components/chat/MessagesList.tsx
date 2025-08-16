@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef } from 'react';
-import MessageItem from './MessageItem';
+import MessageItem, { Message } from './MessageItem';
 import ChatTypingIndicator from './ChatTypingIndicator';
 import ChatEmptyState from './ChatEmptyState';
 import ChatLoadingState from './ChatLoadingState';
@@ -87,6 +87,29 @@ const MessagesList: React.FC<MessagesListProps> = ({
     }
   };
 
+  // Convert DisplayMessage to Message for MessageItem
+  const convertToMessage = (displayMessage: DisplayMessage): Message => {
+    let timestamp: Date;
+    
+    if (typeof displayMessage.timestamp === 'number') {
+      timestamp = new Date(displayMessage.timestamp);
+    } else if (displayMessage.timestamp && typeof displayMessage.timestamp === 'object' && 'toDate' in displayMessage.timestamp) {
+      timestamp = (displayMessage.timestamp as FirebaseTimestamp).toDate();
+    } else {
+      timestamp = new Date();
+    }
+
+    return {
+      id: displayMessage.id,
+      text: displayMessage.text,
+      senderId: displayMessage.isOwn ? 'current-user' : 'other-user', // Add required senderId
+      timestamp,
+      type: (displayMessage.type as any) || 'text',
+      seen: displayMessage.seen,
+      reactions: {}
+    };
+  };
+
   if (loading) {
     return <ChatLoadingState />;
   }
@@ -103,12 +126,15 @@ const MessagesList: React.FC<MessagesListProps> = ({
       {messages.map((message, index) => {
         const previousMessage = index > 0 ? messages[index - 1] : undefined;
         const showDateSeparator = index === 0 || shouldShowDateSeparator(message, previousMessage);
+        const convertedMessage = convertToMessage(message);
         
         return (
           <React.Fragment key={message.id}>
             {showDateSeparator && <DateSeparator timestamp={message.timestamp} />}
             <MessageItem
-              message={message}
+              message={convertedMessage}
+              isOwnMessage={message.isOwn}
+              currentUserId="current-user"
               onSharedContent={onSharedContent}
             />
           </React.Fragment>
