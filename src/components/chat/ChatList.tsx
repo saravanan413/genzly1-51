@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import ChatLoadingState from './ChatLoadingState';
@@ -42,12 +41,12 @@ const ChatList: React.FC<ChatListProps> = ({
     if (avatar && avatar.trim() !== '') {
       return avatar;
     }
-    return '/default-profile.png';
+    return '/lovable-uploads/d349107d-a94b-4c77-9738-6efb4f4d75e5.png';
   };
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const target = e.target as HTMLImageElement;
-    target.src = '/default-profile.png';
+    target.src = '/lovable-uploads/d349107d-a94b-4c77-9738-6efb4f4d75e5.png';
   };
 
   // Filter chats based on search query

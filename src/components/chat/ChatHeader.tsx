@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ArrowLeft, Video, Phone, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -26,12 +25,12 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
     if (avatar && avatar.trim() !== '') {
       return avatar;
     }
-    return '/default-profile.png';
+    return '/lovable-uploads/d349107d-a94b-4c77-9738-6efb4f4d75e5.png';
   };
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const target = e.target as HTMLImageElement;
-    target.src = '/default-profile.png';
+    target.src = '/lovable-uploads/d349107d-a94b-4c77-9738-6efb4f4d75e5.png';
   };
 
   // If no user is provided, show the main chat header
