@@ -1,86 +1,100 @@
 
 import React from 'react';
-import { Plus, MessageCircle, ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Video, Phone, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import NotificationBadge from './NotificationBadge';
-import { useUnreadMessages } from '../../hooks/useUnreadMessages';
+import OnlineStatus from './OnlineStatus';
 
-interface ChatUser {
+interface ChatHeaderUser {
   name: string;
   avatar: string;
 }
 
 interface ChatHeaderProps {
-  onNewChat?: () => void;
-  user?: ChatUser;
+  user?: ChatHeaderUser;
   isOnline?: boolean;
+  onNewChat?: () => void;
 }
 
-const ChatHeader: React.FC<ChatHeaderProps> = ({ onNewChat, user, isOnline }) => {
-  const { totalUnreadCount, hasUnreadMessages } = useUnreadMessages();
+const ChatHeader: React.FC<ChatHeaderProps> = ({
+  user,
+  isOnline = false,
+  onNewChat
+}) => {
   const navigate = useNavigate();
 
-  // Individual chat header
-  if (user) {
+  const getProfilePictureUrl = (avatar?: string, username?: string): string => {
+    if (avatar && avatar.trim() !== '') {
+      return avatar;
+    }
+    return '/default-profile.png';
+  };
+
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const target = e.target as HTMLImageElement;
+    target.src = '/default-profile.png';
+  };
+
+  // If no user is provided, show the main chat header
+  if (!user) {
     return (
-      <div className="flex items-center justify-between p-4 border-b border-border bg-background">
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={() => navigate('/chat')}
-            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
-            aria-label="Back to chat list"
-          >
-            <ArrowLeft size={20} className="text-gray-600 dark:text-gray-400" />
-          </button>
-          
-          <div className="relative">
-            <img
-              src={user.avatar}
-              alt={user.name}
-              className="w-10 h-10 rounded-full object-cover"
-            />
-            {isOnline && (
-              <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-background"></div>
-            )}
+      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-border/50">
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold">Messages</h1>
           </div>
-          
-          <div>
-            <h2 className="font-semibold text-gray-900 dark:text-white">{user.name}</h2>
-            {isOnline && (
-              <p className="text-sm text-green-500">Online</p>
-            )}
-          </div>
+          {onNewChat && (
+            <button 
+              onClick={onNewChat}
+              className="p-2 hover:bg-muted rounded-full transition-colors"
+              aria-label="New chat"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 5v14m7-7H5"/>
+              </svg>
+            </button>
+          )}
         </div>
       </div>
     );
   }
 
-  // Main chat list header
+  // Individual chat header
   return (
-    <div className="flex items-center justify-between mb-6">
-      <div className="flex items-center space-x-3">
-        <div className="relative">
-          <MessageCircle size={28} className="text-gray-900 dark:text-white" />
-          {hasUnreadMessages && (
-            <NotificationBadge 
-              count={totalUnreadCount} 
-              size="sm"
-              className="animate-pulse"
-            />
-          )}
+    <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-border/50">
+      <div className="flex items-center justify-between p-4">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => navigate('/chat')}
+            className="p-1 hover:bg-muted rounded-full transition-colors"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          
+          <img
+            src={getProfilePictureUrl(user.avatar)}
+            alt={user.name}
+            className="w-10 h-10 rounded-full object-cover"
+            onError={handleImageError}
+          />
+          
+          <div>
+            <h2 className="font-semibold">{user.name}</h2>
+            <OnlineStatus isOnline={isOnline} />
+          </div>
         </div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Messages</h1>
+
+        <div className="flex items-center gap-2">
+          <button className="p-2 hover:bg-muted rounded-full transition-colors">
+            <Video size={20} />
+          </button>
+          <button className="p-2 hover:bg-muted rounded-full transition-colors">
+            <Phone size={20} />
+          </button>
+          <button className="p-2 hover:bg-muted rounded-full transition-colors">
+            <Info size={20} />
+          </button>
+        </div>
       </div>
-      
-      {onNewChat && (
-        <button
-          onClick={onNewChat}
-          className="p-2 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 transition-colors"
-          aria-label="Start new chat"
-        >
-          <Plus size={20} />
-        </button>
-      )}
     </div>
   );
 };
