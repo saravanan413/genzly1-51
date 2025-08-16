@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Heart, MessageCircle, UserPlus, User } from 'lucide-react';
+import { Heart, MessageCircle, UserPlus, User, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import FollowRequestNotification from '../components/FollowRequestNotification';
@@ -24,10 +24,10 @@ const Activity = () => {
         return <Heart className="text-red-500" size={16} />;
       case 'comment':
         return <MessageCircle className="text-blue-500" size={16} />;
-      case 'follow':
-        return <UserPlus className="text-green-500" size={16} />;
       case 'follow_request':
         return <User className="text-blue-500" size={16} />;
+      case 'follow_accept':
+        return <UserPlus className="text-green-500" size={16} />;
       default:
         return <User className="text-gray-400" size={16} />;
     }
@@ -49,10 +49,8 @@ const Activity = () => {
       if (notification.postId) {
         navigate(`/post/${notification.postId}`);
       }
-    } else if (notification.type === 'follow') {
+    } else if (notification.type === 'follow_accept') {
       navigate(`/user/${notification.senderId}`);
-    } else if (notification.type === 'message') {
-      navigate(`/chat/${notification.chatId}`);
     }
   };
 
@@ -102,7 +100,20 @@ const Activity = () => {
                   return (
                     <FollowRequestNotification
                       key={notification.id}
-                      notification={notification}
+                      notification={{
+                        id: notification.id,
+                        type: 'follow_request',
+                        from: notification.senderId,
+                        fromUserId: notification.senderId,
+                        fromUsername: notification.senderProfile?.username || 'Unknown',
+                        fromProfilePic: notification.senderProfile?.avatar,
+                        timestamp: notification.timestamp,
+                        status: 'pending',
+                        seen: notification.seen,
+                        receiverId: notification.receiverId,
+                        senderId: notification.senderId,
+                        senderProfile: notification.senderProfile
+                      }}
                       currentUserId={currentUser.uid}
                     />
                   );
@@ -151,7 +162,8 @@ const Activity = () => {
                           <span className="ml-2 w-2 h-2 bg-blue-500 rounded-full inline-block"></span>
                         )}
                       </p>
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="text-xs text-muted-foreground mt-1 flex items-center">
+                        <Clock size={12} className="mr-1" />
                         {getRelativeTime(notification.timestamp)}
                       </p>
                     </div>

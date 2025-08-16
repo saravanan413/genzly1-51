@@ -134,22 +134,25 @@ service cloud.firestore {
         request.auth.uid == resource.data.userId;
     }
     
-    // NOTIFICATIONS - IMPROVED RULES for subcollection structure
-    match /notifications/{userId} {
-      // Allow reading/creating the parent notification document for the user
-      allow read, create: if request.auth != null && request.auth.uid == userId;
+    // 🔔 Notifications - Updated to match your security rules exactly
+    match /notifications/{ownerId} {
+      // Owner can read all their notifications
+      allow read: if request.auth != null && request.auth.uid == ownerId;
       
-      // Notification items subcollection with improved permissions
       match /items/{notificationId} {
-        // Only the notification recipient can read their notifications
-        allow read: if request.auth != null && request.auth.uid == userId;
+        // Owner can read their notifications
+        allow read: if request.auth != null && request.auth.uid == ownerId;
         
-        // Anyone authenticated can create notifications for other users (system notifications)
-        // This allows likes, follows, comments to create notifications for the target user
-        allow create: if request.auth != null;
+        // Owner can update/delete their notifications
+        allow update, delete: if request.auth != null && request.auth.uid == ownerId;
         
-        // Only the recipient can update/delete their notifications (mark as seen, delete)
-        allow update, delete: if request.auth != null && request.auth.uid == userId;
+        // Allow creation of notifications for these actions:
+        // follow_request, follow_accept, like, comment
+        allow create: if request.auth != null
+          && request.resource.data.receiverId == ownerId
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.type in ['follow_request', 'follow_accept', 'like', 'comment']
+          && request.resource.data.timestamp is timestamp;
       }
     }
 

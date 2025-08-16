@@ -1,3 +1,4 @@
+
 import { 
   doc, 
   updateDoc, 
@@ -8,7 +9,7 @@ import {
   getDoc
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { createLikeNotification, removeNotification } from './notifications';
+import { createLikeNotification, removeNotification } from './notificationService';
 
 export interface PostReaction {
   userId: string;

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { 
@@ -5,7 +6,7 @@ import {
   markNotificationAsSeen, 
   deleteNotification,
   Notification 
-} from '../services/notifications';
+} from '../services/notificationService';
 
 export const useNotifications = () => {
   const { currentUser } = useAuth();
@@ -22,38 +23,16 @@ export const useNotifications = () => {
       return;
     }
 
-    console.log('=== SETTING UP NOTIFICATION SUBSCRIPTION ===');
     console.log('Setting up notification subscription for user:', currentUser.uid);
-    console.log('Listening to path: users/' + currentUser.uid + '/notifications/data/items');
 
-    // Subscribe to real-time notifications from the correct path (5 segments)
+    // Subscribe to real-time notifications
     const unsubscribe = subscribeToNotifications(currentUser.uid, (newNotifications) => {
-      console.log('=== NOTIFICATION UPDATE RECEIVED ===');
       console.log('Received notification update:', newNotifications.length, 'notifications');
       
-      // Log each notification for debugging
-      newNotifications.forEach((notification, index) => {
-        console.log(`Notification ${index + 1}:`, {
-          type: notification.type,
-          fromUser: notification.fromUsername,
-          seen: notification.seen,
-          timestamp: notification.timestamp,
-          from: notification.from,
-          fromUserId: notification.fromUserId
-        });
-      });
-      
-      // Filter notifications to ensure they're for the current user
-      const userNotifications = newNotifications.filter(n => 
-        (n.receiverId === currentUser.uid) || (!n.receiverId && n.from) || (!n.receiverId && n.fromUserId)
-      );
-      
-      console.log('Filtered notifications for current user:', userNotifications.length);
-      
-      setNotifications(userNotifications);
+      setNotifications(newNotifications);
       
       // Calculate unread count
-      const unseenCount = userNotifications.filter(n => !n.seen).length;
+      const unseenCount = newNotifications.filter(n => !n.seen).length;
       console.log('Unread count updated to:', unseenCount);
       setUnreadCount(unseenCount);
       
@@ -61,7 +40,6 @@ export const useNotifications = () => {
     });
 
     return () => {
-      console.log('=== CLEANING UP NOTIFICATION SUBSCRIPTION ===');
       console.log('Cleaning up notification subscription for user:', currentUser.uid);
       unsubscribe();
     };
@@ -116,13 +94,11 @@ export const useNotifications = () => {
       case 'like':
         return 'liked your post';
       case 'comment':
-        return notification.text ? `commented: "${notification.text}"` : 'commented on your post';
-      case 'follow':
-        return 'started following you';
+        return notification.commentText ? `commented: "${notification.commentText}"` : 'commented on your post';
       case 'follow_request':
         return 'requested to follow you';
-      case 'message':
-        return 'sent you a message';
+      case 'follow_accept':
+        return 'accepted your follow request';
       default:
         return 'interacted with your content';
     }

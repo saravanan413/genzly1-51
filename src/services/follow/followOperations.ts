@@ -8,7 +8,7 @@ import {
   collection
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
-import { createFollowNotification, createFollowRequestNotification, removeNotification } from '../notifications';
+import { createFollowRequestNotification, createFollowAcceptNotification, removeNotification } from '../notificationService';
 
 export const followUser = async (currentUserId: string, targetUserId: string) => {
   if (currentUserId === targetUserId) {
@@ -45,9 +45,9 @@ export const followUser = async (currentUserId: string, targetUserId: string) =>
       // Create follow request document at /users/{targetUserId}/followRequests/{currentUserId}
       const followRequestRef = doc(db, 'users', targetUserId, 'followRequests', currentUserId);
       await setDoc(followRequestRef, {
-        from: currentUserId, // Use 'from' as per your requirement
-        to: targetUserId, // Use 'to' as per your requirement
-        uid: currentUserId, // Keep for compatibility
+        from: currentUserId,
+        to: targetUserId,
+        uid: currentUserId,
         username: currentUserData.username || 'Unknown',
         displayName: currentUserData.displayName || 'Unknown User',
         avatar: currentUserData.avatar || null,
@@ -55,16 +55,15 @@ export const followUser = async (currentUserId: string, targetUserId: string) =>
         status: 'pending'
       });
       
-      console.log('Follow request document created at path: /users/' + targetUserId + '/followRequests/' + currentUserId);
+      console.log('Follow request document created');
       
-      // Create notification for follow request at /users/{targetUserId}/notifications/items/{notificationId}
+      // Create notification for follow request
       console.log('Creating follow request notification...');
       try {
         await createFollowRequestNotification(targetUserId, currentUserId);
         console.log('Follow request notification created successfully');
       } catch (error) {
         console.error('Error creating follow request notification:', error);
-        // Don't fail the whole operation if notification fails
       }
       
       return true;
@@ -73,7 +72,7 @@ export const followUser = async (currentUserId: string, targetUserId: string) =>
     console.log('=== PUBLIC ACCOUNT FOLLOW ===');
     console.log('User data loaded, proceeding with public follow operation');
 
-    // Use batch write for atomic operations with proper error handling
+    // Use batch write for atomic operations
     const batch = writeBatch(db);
 
     // Create document at /users/{targetUserId}/followers/{currentUserId}
@@ -101,23 +100,16 @@ export const followUser = async (currentUserId: string, targetUserId: string) =>
     await batch.commit();
     console.log('Batch commit successful');
     
-    console.log('Creating follow notification...');
-    // Create follow notification for the followed user
-    try {
-      await createFollowNotification(targetUserId, currentUserId);
-      console.log('Follow notification created successfully');
-    } catch (error) {
-      console.error('Error creating follow notification:', error);
-      // Don't fail the whole operation if notification fails
-    }
+    // Note: For public follows, we would create a 'follow_accept' notification
+    // since it's automatically accepted. However, this might be too spammy.
+    // You can uncomment the line below if you want notifications for public follows:
+    // await createFollowAcceptNotification(currentUserId, targetUserId);
     
     console.log('Public follow operation completed successfully');
     return true;
   } catch (error: any) {
     console.error('=== ERROR IN FOLLOW OPERATION ===');
     console.error('Error:', error);
-    console.error('Error code:', error.code);
-    console.error('Error message:', error.message);
     return false;
   }
 };
@@ -150,17 +142,11 @@ export const unfollowUser = async (currentUserId: string, targetUserId: string) 
     const followersRef = doc(db, 'users', targetUserId, 'followers', currentUserId);
     const followingRef = doc(db, 'users', currentUserId, 'following', targetUserId);
     
-    console.log('Checking document existence...');
-
     // Check if the documents exist before trying to delete them
     const [followersDoc, followingDoc] = await Promise.all([
       getDoc(followersRef),
       getDoc(followingRef)
     ]);
-
-    console.log('Document existence check results:');
-    console.log('Followers doc exists:', followersDoc.exists());
-    console.log('Following doc exists:', followingDoc.exists());
 
     // Use batch write for atomic operations
     const batch = writeBatch(db);
@@ -187,11 +173,6 @@ export const unfollowUser = async (currentUserId: string, targetUserId: string) 
     } else {
       console.log('No follow relationship found to remove');
     }
-    
-    console.log('Removing follow notification...');
-    // Remove follow notification
-    await removeNotification(targetUserId, currentUserId, 'follow');
-    console.log('Follow notification removed successfully');
     
     return true;
   } catch (error: any) {
@@ -252,9 +233,9 @@ export const acceptFollowRequest = async (currentUserId: string, requesterUserId
     await batch.commit();
     console.log('Follow request accepted successfully');
 
-    // Remove follow request notification and create follow notification
+    // Remove follow request notification and create follow accept notification
     await removeNotification(currentUserId, requesterUserId, 'follow_request');
-    await createFollowNotification(requesterUserId, currentUserId);
+    await createFollowAcceptNotification(requesterUserId, currentUserId);
 
     return true;
   } catch (error: any) {
