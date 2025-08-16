@@ -4,7 +4,7 @@ import { useFeedPosts } from './useFirebaseData';
 import { useAuth } from '../contexts/AuthContext';
 import { doc, updateDoc, increment, getDoc, setDoc, deleteDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { sendLikeNotification } from '../services/notificationService';
+import { createLikeNotification, createFollowRequestNotification } from '../services/notificationService';
 
 export const useFeedData = () => {
   const { posts, loading, hasMore, refreshPosts, loadMorePosts } = useFeedPosts();
@@ -50,10 +50,9 @@ export const useFeedData = () => {
         });
 
         // Send like notification
-        await sendLikeNotification(
-          currentUser.uid,
+        await createLikeNotification(
           post.userId,
-          userProfile.displayName || userProfile.username,
+          currentUser.uid,
           postId
         );
       }
@@ -126,11 +125,9 @@ export const useFeedData = () => {
         });
 
         // Send follow notification
-        const { sendFollowNotification } = await import('../services/notificationService');
-        await sendFollowNotification(
-          currentUser.uid,
+        await createFollowRequestNotification(
           userId,
-          userProfile.displayName || userProfile.username
+          currentUser.uid
         );
       }
     } catch (error) {

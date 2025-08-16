@@ -4,7 +4,7 @@ import { useReels } from './useFirebaseData';
 import { useAuth } from '../contexts/AuthContext';
 import { doc, updateDoc, increment, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { sendLikeNotification, sendFollowNotification } from '../services/notificationService';
+import { createLikeNotification, createFollowRequestNotification } from '../services/notificationService';
 
 export const useReelsActions = () => {
   const { reels: firebaseReels, loading, hasMore, loadMoreReels } = useReels();
@@ -49,10 +49,9 @@ export const useReelsActions = () => {
         });
 
         // Send like notification
-        await sendLikeNotification(
-          currentUser.uid,
+        await createLikeNotification(
           reel.userId,
-          userProfile.displayName || userProfile.username,
+          currentUser.uid,
           id
         );
       }
@@ -120,7 +119,7 @@ export const useReelsActions = () => {
           followers: increment(-1)
         });
         await updateDoc(doc(db, 'users', currentUser.uid), {
-          following: increment(1)
+          following: increment(-1)
         });
       } else {
         await setDoc(followerRef, {
@@ -140,10 +139,9 @@ export const useReelsActions = () => {
           following: increment(1)
         });
 
-        await sendFollowNotification(
-          currentUser.uid,
+        await createFollowRequestNotification(
           userId,
-          userProfile.displayName || userProfile.username
+          currentUser.uid
         );
       }
     } catch (error) {
