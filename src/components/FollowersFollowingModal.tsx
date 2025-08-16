@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
@@ -179,12 +180,9 @@ const FollowersFollowingModal: React.FC<FollowersFollowingModalProps> = ({
     }
   };
 
-  // Get profile picture URL with fallback to default
-  const getProfilePictureUrl = (userInfo: any): string => {
-    if (userInfo.avatar) {
-      return userInfo.avatar;
-    }
-    return '/default-profile.png';
+  // Generate default avatar
+  const getFallbackAvatar = (): string => {
+    return '/lovable-uploads/07e28f82-bd38-410c-a208-5db174616626.png';
   };
 
   if (!isOpen) return null;
@@ -212,7 +210,7 @@ const FollowersFollowingModal: React.FC<FollowersFollowingModalProps> = ({
               {users.map((followData) => {
                 const userInfo = type === 'followers' ? followData.followerInfo : followData.followedInfo;
                 const userId = type === 'followers' ? followData.followerId : followData.followedId;
-                const avatarUrl = getProfilePictureUrl(userInfo);
+                const avatarUrl = userInfo.avatar || getFallbackAvatar();
                 const isCurrentUser = userId === currentUser?.uid;
                 const isLoadingAction = actionLoading === userId;
                 
@@ -229,10 +227,6 @@ const FollowersFollowingModal: React.FC<FollowersFollowingModalProps> = ({
                         src={avatarUrl} 
                         alt={userInfo.username} 
                         className="w-full h-full rounded-full object-cover"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = '/default-profile.png';
-                        }}
                       />
                     </div>
                     <div 
