@@ -1,4 +1,3 @@
-
 import { 
   collection, 
   addDoc, 
@@ -51,6 +50,7 @@ export const createInstagramNotification = async (
   try {
     // Don't create notification for self-actions
     if (receiverId === senderId) {
+      console.log('Skipping self-notification');
       return;
     }
 
@@ -62,6 +62,8 @@ export const createInstagramNotification = async (
       console.error('Could not find sender profile for:', senderId);
       return;
     }
+
+    console.log('Sender profile found:', { username: senderProfile.username, displayName: senderProfile.displayName });
 
     const notificationsRef = collection(db, 'notifications', receiverId, 'items');
 
@@ -97,18 +99,24 @@ export const createInstagramNotification = async (
       }
     }
 
-    // For follow requests, check for duplicates
+    // For follow requests, check for duplicates to prevent spam
     if (type === 'follow_request') {
       const existingQuery = query(
         notificationsRef,
         where('senderId', '==', senderId),
-        where('type', '==', 'follow_request')
+        where('type', '==', 'follow_request'),
+        limit(1)
       );
       
       const existingDocs = await getDocs(existingQuery);
       if (!existingDocs.empty) {
-        console.log('Follow request notification already exists');
-        return;
+        console.log('Follow request notification already exists, updating timestamp');
+        const existingDoc = existingDocs.docs[0];
+        await updateDoc(existingDoc.ref, {
+          timestamp: serverTimestamp(),
+          seen: false
+        });
+        return existingDoc.id;
       }
     }
 
@@ -125,11 +133,18 @@ export const createInstagramNotification = async (
       ...(additionalData?.commentText && { commentText: additionalData.commentText })
     };
 
+    console.log('Creating notification document with data:', notificationData);
+
     const docRef = await addDoc(notificationsRef, notificationData);
     console.log(`Instagram-style ${type} notification created with ID:`, docRef.id);
     return docRef.id;
   } catch (error) {
     console.error('Error creating Instagram notification:', error);
+    console.error('Error details:', {
+      code: error?.code,
+      message: error?.message,
+      stack: error?.stack
+    });
     throw error;
   }
 };
@@ -256,6 +271,8 @@ export const removeInstagramNotification = async (
   postId?: string
 ) => {
   try {
+    console.log('Removing Instagram notification:', { receiverId, senderId, type, postId });
+    
     const q = query(
       collection(db, 'notifications', receiverId, 'items'),
       where('type', '==', type),
@@ -264,6 +281,7 @@ export const removeInstagramNotification = async (
     );
     
     const snapshot = await getDocs(q);
+    console.log('Found notifications to remove/update:', snapshot.docs.length);
     
     if (type === 'like' && snapshot.docs.length > 0) {
       // For likes, handle aggregation
@@ -281,17 +299,20 @@ export const removeInstagramNotification = async (
           senderId: newActors[0] || data.senderId, // Update primary sender
           timestamp: serverTimestamp()
         });
+        console.log('Updated aggregated like notification');
       } else {
         // Delete if it was the only like
         await deleteDoc(doc.ref);
+        console.log('Deleted last like notification');
       }
     } else {
-      // For other types, just delete
+      // For other types, just delete all matching notifications
       const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
       await Promise.all(deletePromises);
+      console.log(`Deleted ${snapshot.docs.length} ${type} notifications`);
     }
     
-    console.log(`Removed/updated ${type} notification successfully`);
+    console.log(`Successfully removed/updated ${type} notification`);
   } catch (error) {
     console.error('Error removing Instagram notification:', error);
   }
@@ -303,7 +324,7 @@ export const createLikeNotification = async (
   likerId: string,
   postId: string
 ) => {
-  await createInstagramNotification(postOwnerId, likerId, 'like', { postId });
+  return await createInstagramNotification(postOwnerId, likerId, 'like', { postId });
 };
 
 export const createCommentNotification = async (
@@ -312,7 +333,7 @@ export const createCommentNotification = async (
   postId: string,
   commentText?: string
 ) => {
-  await createInstagramNotification(postOwnerId, commenterId, 'comment', { 
+  return await createInstagramNotification(postOwnerId, commenterId, 'comment', { 
     postId, 
     commentText: commentText?.substring(0, 100) 
   });
@@ -322,12 +343,12 @@ export const createFollowRequestNotification = async (
   targetUserId: string,
   requesterId: string
 ) => {
-  await createInstagramNotification(targetUserId, requesterId, 'follow_request');
+  return await createInstagramNotification(targetUserId, requesterId, 'follow_request');
 };
 
 export const createFollowAcceptNotification = async (
   requesterId: string,
   accepterId: string
 ) => {
-  await createInstagramNotification(requesterId, accepterId, 'follow_accept');
+  return await createInstagramNotification(requesterId, accepterId, 'follow_accept');
 };

@@ -8,7 +8,7 @@ import {
   collection
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
-import { createFollowRequestNotification, createFollowAcceptNotification, removeInstagramNotification } from '../instagramNotificationService';
+import { createInstagramNotification, removeInstagramNotification } from '../instagramNotificationService';
 
 export const followUser = async (currentUserId: string, targetUserId: string) => {
   if (currentUserId === targetUserId) {
@@ -60,10 +60,15 @@ export const followUser = async (currentUserId: string, targetUserId: string) =>
       // Create Instagram-style notification for follow request
       console.log('Creating Instagram-style follow request notification...');
       try {
-        await createFollowRequestNotification(targetUserId, currentUserId);
-        console.log('Instagram-style follow request notification created successfully');
+        const notificationId = await createInstagramNotification(
+          targetUserId, 
+          currentUserId, 
+          'follow_request'
+        );
+        console.log('Instagram-style follow request notification created successfully with ID:', notificationId);
       } catch (error) {
         console.error('Error creating Instagram-style follow request notification:', error);
+        // Don't fail the follow request if notification creation fails
       }
       
       return true;
@@ -100,10 +105,18 @@ export const followUser = async (currentUserId: string, targetUserId: string) =>
     await batch.commit();
     console.log('Batch commit successful');
     
-    // Note: For public follows, we would create a 'follow_accept' notification
-    // since it's automatically accepted. However, this might be too spammy.
-    // You can uncomment the line below if you want notifications for public follows:
-    // await createFollowAcceptNotification(currentUserId, targetUserId);
+    // For public follows, create a follow_accept notification since it's automatically accepted
+    try {
+      const notificationId = await createInstagramNotification(
+        currentUserId, 
+        targetUserId, 
+        'follow_accept'
+      );
+      console.log('Follow accept notification created with ID:', notificationId);
+    } catch (error) {
+      console.error('Error creating follow accept notification:', error);
+      // Don't fail the follow if notification creation fails
+    }
     
     console.log('Public follow operation completed successfully');
     return true;
@@ -133,7 +146,13 @@ export const unfollowUser = async (currentUserId: string, targetUserId: string) 
       await deleteDoc(followRequestRef);
       
       // Remove Instagram-style follow request notification
-      await removeInstagramNotification(targetUserId, currentUserId, 'follow_request');
+      try {
+        await removeInstagramNotification(targetUserId, currentUserId, 'follow_request');
+        console.log('Follow request notification removed');
+      } catch (error) {
+        console.error('Error removing follow request notification:', error);
+      }
+      
       console.log('Follow request cancelled successfully');
       return true;
     }
@@ -234,8 +253,15 @@ export const acceptFollowRequest = async (currentUserId: string, requesterUserId
     console.log('Follow request accepted successfully');
 
     // Remove follow request notification and create follow accept notification
-    await removeInstagramNotification(currentUserId, requesterUserId, 'follow_request');
-    await createFollowAcceptNotification(requesterUserId, currentUserId);
+    try {
+      await removeInstagramNotification(currentUserId, requesterUserId, 'follow_request');
+      console.log('Follow request notification removed');
+      
+      const notificationId = await createInstagramNotification(requesterUserId, currentUserId, 'follow_accept');
+      console.log('Follow accept notification created with ID:', notificationId);
+    } catch (error) {
+      console.error('Error handling notifications during follow accept:', error);
+    }
 
     return true;
   } catch (error: any) {
@@ -255,7 +281,12 @@ export const rejectFollowRequest = async (currentUserId: string, requesterUserId
     await deleteDoc(followRequestRef);
     
     // Remove Instagram-style follow request notification
-    await removeInstagramNotification(currentUserId, requesterUserId, 'follow_request');
+    try {
+      await removeInstagramNotification(currentUserId, requesterUserId, 'follow_request');
+      console.log('Follow request notification removed');
+    } catch (error) {
+      console.error('Error removing follow request notification:', error);
+    }
     
     console.log('Follow request rejected successfully');
     return true;
