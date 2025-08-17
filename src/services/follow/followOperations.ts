@@ -8,7 +8,7 @@ import {
   collection
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
-import { createFollowRequestNotification, createFollowAcceptNotification, removeNotification } from '../notificationService';
+import { createFollowRequestNotification, createFollowAcceptNotification, removeInstagramNotification } from '../instagramNotificationService';
 
 export const followUser = async (currentUserId: string, targetUserId: string) => {
   if (currentUserId === targetUserId) {
@@ -57,13 +57,13 @@ export const followUser = async (currentUserId: string, targetUserId: string) =>
       
       console.log('Follow request document created');
       
-      // Create notification for follow request
-      console.log('Creating follow request notification...');
+      // Create Instagram-style notification for follow request
+      console.log('Creating Instagram-style follow request notification...');
       try {
         await createFollowRequestNotification(targetUserId, currentUserId);
-        console.log('Follow request notification created successfully');
+        console.log('Instagram-style follow request notification created successfully');
       } catch (error) {
-        console.error('Error creating follow request notification:', error);
+        console.error('Error creating Instagram-style follow request notification:', error);
       }
       
       return true;
@@ -132,8 +132,8 @@ export const unfollowUser = async (currentUserId: string, targetUserId: string) 
       console.log('Found pending follow request, deleting...');
       await deleteDoc(followRequestRef);
       
-      // Remove follow request notification
-      await removeNotification(targetUserId, currentUserId, 'follow_request');
+      // Remove Instagram-style follow request notification
+      await removeInstagramNotification(targetUserId, currentUserId, 'follow_request');
       console.log('Follow request cancelled successfully');
       return true;
     }
@@ -234,7 +234,7 @@ export const acceptFollowRequest = async (currentUserId: string, requesterUserId
     console.log('Follow request accepted successfully');
 
     // Remove follow request notification and create follow accept notification
-    await removeNotification(currentUserId, requesterUserId, 'follow_request');
+    await removeInstagramNotification(currentUserId, requesterUserId, 'follow_request');
     await createFollowAcceptNotification(requesterUserId, currentUserId);
 
     return true;
@@ -254,8 +254,8 @@ export const rejectFollowRequest = async (currentUserId: string, requesterUserId
     const followRequestRef = doc(db, 'users', currentUserId, 'followRequests', requesterUserId);
     await deleteDoc(followRequestRef);
     
-    // Remove follow request notification
-    await removeNotification(currentUserId, requesterUserId, 'follow_request');
+    // Remove Instagram-style follow request notification
+    await removeInstagramNotification(currentUserId, requesterUserId, 'follow_request');
     
     console.log('Follow request rejected successfully');
     return true;

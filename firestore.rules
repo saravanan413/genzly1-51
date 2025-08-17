@@ -50,6 +50,28 @@ service cloud.firestore {
       }
     }
     
+    // 🔔 NOTIFICATIONS - New Instagram-like structure
+    match /notifications/{userId} {
+      // Only the notification owner can read their notifications
+      allow read: if request.auth != null && request.auth.uid == userId;
+      
+      match /items/{notificationId} {
+        // Owner can read their notifications
+        allow read: if request.auth != null && request.auth.uid == userId;
+        
+        // Owner can update/delete their notifications (mark as seen, delete)
+        allow update, delete: if request.auth != null && request.auth.uid == userId;
+        
+        // Anyone can create notifications for others (sender creates notification for receiver)
+        allow create: if request.auth != null 
+          && request.resource.data.receiverId == userId
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.type in ['like', 'comment', 'follow_request', 'follow_accept']
+          && request.resource.data.timestamp is timestamp
+          && request.resource.data.seen == false;
+      }
+    }
+    
     // PERSISTENT CHAT DOCUMENTS - Main chat collection for chat list persistence
     match /chats/{chatId} {
       // Only users in the 'users' array can read/write the chat document
@@ -132,28 +154,6 @@ service cloud.firestore {
         request.auth.uid == resource.data.userId;
       allow delete: if request.auth != null && 
         request.auth.uid == resource.data.userId;
-    }
-    
-    // 🔔 Notifications - Updated to match your security rules exactly
-    match /notifications/{ownerId} {
-      // Owner can read all their notifications
-      allow read: if request.auth != null && request.auth.uid == ownerId;
-      
-      match /items/{notificationId} {
-        // Owner can read their notifications
-        allow read: if request.auth != null && request.auth.uid == ownerId;
-        
-        // Owner can update/delete their notifications
-        allow update, delete: if request.auth != null && request.auth.uid == ownerId;
-        
-        // Allow creation of notifications for these actions:
-        // follow_request, follow_accept, like, comment
-        allow create: if request.auth != null
-          && request.resource.data.receiverId == ownerId
-          && request.resource.data.senderId == request.auth.uid
-          && request.resource.data.type in ['follow_request', 'follow_accept', 'like', 'comment']
-          && request.resource.data.timestamp is timestamp;
-      }
     }
 
     // Reports - only authenticated users can create reports, only admins can read
