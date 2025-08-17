@@ -27,8 +27,8 @@ export interface InstagramNotification {
   postId?: string;
   commentText?: string;
   // Instagram-like aggregation
-  aggregatedCount?: number; // For multiple likes on same post
-  lastActors?: string[]; // Last few users who performed this action
+  aggregatedCount?: number;
+  lastActors?: string[];
   senderProfile?: {
     username: string;
     displayName: string;
@@ -37,7 +37,7 @@ export interface InstagramNotification {
   postThumbnail?: string;
 }
 
-// Create notification with Instagram-like aggregation
+// Create notification with Instagram-like aggregation - FIXED to match Firestore rule
 export const createInstagramNotification = async (
   receiverId: string,
   senderId: string,
@@ -120,17 +120,22 @@ export const createInstagramNotification = async (
       }
     }
 
-    // Create new notification
+    // Create new notification - FIXED: Match exactly with Firestore rule requirements
     const notificationData = {
-      type,
-      senderId,
+      // Required fields from Firestore rule
       receiverId,
+      senderId,
+      type,
       timestamp: serverTimestamp(),
       seen: false,
-      aggregatedCount: 1,
-      lastActors: [senderId],
+      
+      // Optional fields
       ...(additionalData?.postId && { postId: additionalData.postId }),
-      ...(additionalData?.commentText && { commentText: additionalData.commentText })
+      ...(additionalData?.commentText && { commentText: additionalData.commentText }),
+      
+      // Instagram-style aggregation fields
+      aggregatedCount: 1,
+      lastActors: [senderId]
     };
 
     console.log('Creating notification document with data:', notificationData);
