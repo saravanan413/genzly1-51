@@ -29,6 +29,7 @@ import LikedPostsReels from "./pages/LikedPostsReels";
 import Archive from "./pages/Archive";
 import BlockedUsers from "./pages/BlockedUsers";
 import MyStories from "./pages/MyStories";
+import CommunityGuidelines from "./pages/CommunityGuidelines";
 
 const queryClient = new QueryClient();
 
@@ -69,6 +70,7 @@ const AppContent = () => {
       <Route path="/edit-profile" element={<EditProfile />} />
       <Route path="/settings" element={<Settings />} />
       <Route path="/settings/language" element={<LanguageSettings />} />
+      <Route path="/community-guidelines" element={<CommunityGuidelines />} />
       <Route path="/liked-posts" element={<LikedPosts />} />
       {/* New settings sub-pages */}
       <Route path="/liked" element={<LikedPostsReels />} />

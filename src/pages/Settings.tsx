@@ -1,5 +1,6 @@
+
 import { useState, useEffect } from 'react';
-import { ArrowLeft, User, Lock, Bell, Eye, Heart, Shield, HelpCircle, LogOut, Moon, Globe, Camera, ThumbsUp, Play, Database, Key, Archive } from 'lucide-react';
+import { ArrowLeft, User, Lock, Bell, Eye, Heart, Shield, HelpCircle, LogOut, Moon, Globe, Camera, ThumbsUp, Play, Database, Key, Archive, FileText } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { Button } from '@/components/ui/button';
@@ -303,6 +304,16 @@ const Settings = () => {
             <div className="bg-card rounded-lg border p-4">
               <h2 className="text-lg font-semibold mb-4 text-foreground">Support</h2>
               <div className="space-y-4">
+                <div className="flex items-center justify-between py-2 cursor-pointer" onClick={() => navigate('/community-guidelines')}>
+                  <div className="flex items-center space-x-3">
+                    <FileText size={20} className="text-muted-foreground" />
+                    <span className="text-foreground">Community Guidelines</span>
+                  </div>
+                  <Button variant="ghost" size="sm">
+                    <ArrowLeft size={16} className="rotate-180" />
+                  </Button>
+                </div>
+
                 <div className="flex items-center justify-between py-2">
                   <div className="flex items-center space-x-3">
                     <HelpCircle size={20} className="text-muted-foreground" />
