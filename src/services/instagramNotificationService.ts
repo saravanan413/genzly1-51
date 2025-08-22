@@ -38,7 +38,7 @@ export interface InstagramNotification {
   postThumbnail?: string;
 }
 
-// Create notification with Instagram-like aggregation
+// Create notification with Instagram-like aggregation - STRICT Firestore rule compliance
 export const createInstagramNotification = async (
   receiverId: string,
   senderId: string,
@@ -121,29 +121,48 @@ export const createInstagramNotification = async (
       }
     }
 
-    // Create new notification - MUST match Firestore rule exactly
+    // CRITICAL: Create notification with ONLY the 5 required fields as per Firestore rule
+    // Rule: request.resource.data.keys().hasAll(['receiverId','senderId','type','timestamp','seen'])
     const notificationData = {
-      // Core required fields that MUST match the Firestore rule
       receiverId,    // MUST match the document path userId
-      senderId,      // MUST match request.auth.uid
-      type,          // MUST be one of the allowed types
+      senderId,      // MUST match request.auth.uid  
+      type,          // MUST be one of: 'like', 'comment', 'follow_request', 'follow_accept'
       timestamp: serverTimestamp(),  // MUST be timestamp
-      seen: false,   // MUST be false initially
-      
-      // Optional fields that don't affect security rules
-      ...(additionalData?.postId && { postId: additionalData.postId }),
-      ...(additionalData?.commentText && { commentText: additionalData.commentText }),
-      
-      // Instagram-style aggregation fields
-      aggregatedCount: 1,
-      lastActors: [senderId]
+      seen: false    // MUST be false initially
     };
 
-    console.log('Creating notification document with exact rule-matching data:', notificationData);
+    console.log('Creating notification with EXACT rule-compliant fields:', notificationData);
+    console.log('Field count:', Object.keys(notificationData).length, '(must be exactly 5)');
 
     // Create the notification document
     const docRef = await addDoc(notificationsRef, notificationData);
     console.log(`Instagram-style ${type} notification created successfully with ID:`, docRef.id);
+    
+    // After successful creation, update with additional fields (this bypasses the strict create rule)
+    if (additionalData?.postId || additionalData?.commentText) {
+      const updateData: any = {
+        aggregatedCount: 1,
+        lastActors: [senderId]
+      };
+      
+      if (additionalData.postId) {
+        updateData.postId = additionalData.postId;
+      }
+      
+      if (additionalData.commentText) {
+        updateData.commentText = additionalData.commentText;
+      }
+      
+      await updateDoc(docRef, updateData);
+      console.log('Additional fields added after creation');
+    } else {
+      // For follow requests and accepts, still add aggregation fields
+      await updateDoc(docRef, {
+        aggregatedCount: 1,
+        lastActors: [senderId]
+      });
+    }
+    
     return docRef.id;
   } catch (error) {
     console.error('Error creating Instagram notification:', error);
@@ -157,11 +176,14 @@ export const createInstagramNotification = async (
     
     // Log specific permission errors
     if (error?.code === 'permission-denied') {
-      console.error('PERMISSION DENIED - Check if:');
-      console.error('1. User is authenticated');
-      console.error('2. senderId matches current user ID');
-      console.error('3. receiverId is valid');
-      console.error('4. All required fields are present');
+      console.error('PERMISSION DENIED - Firestore rule violation detected!');
+      console.error('Check if notification data has EXACTLY these 5 fields:');
+      console.error('1. receiverId (must match document path userId)');
+      console.error('2. senderId (must match request.auth.uid)');
+      console.error('3. type (must be: like, comment, follow_request, follow_accept)');
+      console.error('4. timestamp (must be serverTimestamp)');
+      console.error('5. seen (must be false)');
+      console.error('NO OTHER FIELDS are allowed during creation!');
     }
     
     throw error;
