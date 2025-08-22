@@ -59,15 +59,25 @@ export const followUser = async (currentUserId: string, targetUserId: string) =>
       
       // Create Instagram-style notification for follow request
       console.log('Creating Instagram-style follow request notification...');
+      console.log('Notification params:', {
+        targetUserId: targetUserId,
+        currentUserId: currentUserId,
+        type: 'follow_request'
+      });
+      
       try {
         const notificationId = await createInstagramNotification(
-          targetUserId, 
-          currentUserId, 
+          targetUserId,   // receiverId - person who will receive the notification
+          currentUserId,  // senderId - person sending the follow request
           'follow_request'
         );
         console.log('Instagram-style follow request notification created successfully with ID:', notificationId);
       } catch (error) {
         console.error('Error creating Instagram-style follow request notification:', error);
+        console.error('This might be a Firestore rule issue. Check:');
+        console.error('1. Current user authentication');
+        console.error('2. Firestore rules for notifications');
+        console.error('3. Document path structure');
         // Don't fail the follow request if notification creation fails
       }
       

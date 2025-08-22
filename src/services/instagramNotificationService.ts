@@ -1,3 +1,4 @@
+
 import { 
   collection, 
   addDoc, 
@@ -37,7 +38,7 @@ export interface InstagramNotification {
   postThumbnail?: string;
 }
 
-// Create notification with Instagram-like aggregation - FIXED to match Firestore rule
+// Create notification with Instagram-like aggregation
 export const createInstagramNotification = async (
   receiverId: string,
   senderId: string,
@@ -56,7 +57,7 @@ export const createInstagramNotification = async (
 
     console.log('Creating Instagram-style notification:', { receiverId, senderId, type, additionalData });
 
-    // Get sender profile
+    // Get sender profile for validation
     const senderProfile = await getUserProfile(senderId);
     if (!senderProfile) {
       console.error('Could not find sender profile for:', senderId);
@@ -120,16 +121,16 @@ export const createInstagramNotification = async (
       }
     }
 
-    // Create new notification - FIXED: Match exactly with Firestore rule requirements
+    // Create new notification - MUST match Firestore rule exactly
     const notificationData = {
-      // Required fields from Firestore rule
-      receiverId,
-      senderId,
-      type,
-      timestamp: serverTimestamp(),
-      seen: false,
+      // Core required fields that MUST match the Firestore rule
+      receiverId,    // MUST match the document path userId
+      senderId,      // MUST match request.auth.uid
+      type,          // MUST be one of the allowed types
+      timestamp: serverTimestamp(),  // MUST be timestamp
+      seen: false,   // MUST be false initially
       
-      // Optional fields
+      // Optional fields that don't affect security rules
       ...(additionalData?.postId && { postId: additionalData.postId }),
       ...(additionalData?.commentText && { commentText: additionalData.commentText }),
       
@@ -138,18 +139,31 @@ export const createInstagramNotification = async (
       lastActors: [senderId]
     };
 
-    console.log('Creating notification document with data:', notificationData);
+    console.log('Creating notification document with exact rule-matching data:', notificationData);
 
+    // Create the notification document
     const docRef = await addDoc(notificationsRef, notificationData);
-    console.log(`Instagram-style ${type} notification created with ID:`, docRef.id);
+    console.log(`Instagram-style ${type} notification created successfully with ID:`, docRef.id);
     return docRef.id;
   } catch (error) {
     console.error('Error creating Instagram notification:', error);
     console.error('Error details:', {
       code: error?.code,
       message: error?.message,
-      stack: error?.stack
+      receiverId,
+      senderId,
+      type
     });
+    
+    // Log specific permission errors
+    if (error?.code === 'permission-denied') {
+      console.error('PERMISSION DENIED - Check if:');
+      console.error('1. User is authenticated');
+      console.error('2. senderId matches current user ID');
+      console.error('3. receiverId is valid');
+      console.error('4. All required fields are present');
+    }
+    
     throw error;
   }
 };
