@@ -13,7 +13,8 @@ import {
   deleteDoc,
   where,
   writeBatch,
-  limit
+  limit,
+  FieldValue
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { getUserProfile } from './firestoreService';
@@ -122,46 +123,39 @@ export const createInstagramNotification = async (
     }
 
     // CRITICAL: Create notification with ONLY the 5 required fields as per Firestore rule
-    // Rule: request.resource.data.keys().hasAll(['receiverId','senderId','type','timestamp','seen'])
+    // Rule requires: receiverId, senderId, type, timestamp, seen
     const notificationData = {
       receiverId,    // MUST match the document path userId
       senderId,      // MUST match request.auth.uid  
       type,          // MUST be one of: 'like', 'comment', 'follow_request', 'follow_accept'
-      timestamp: serverTimestamp(),  // MUST be timestamp
+      timestamp: serverTimestamp(),  // Using serverTimestamp() which becomes request.time in rules
       seen: false    // MUST be false initially
     };
 
     console.log('Creating notification with EXACT rule-compliant fields:', notificationData);
+    console.log('Document path: /notifications/' + receiverId + '/items/');
     console.log('Field count:', Object.keys(notificationData).length, '(must be exactly 5)');
 
-    // Create the notification document
+    // Create the notification document at /notifications/{receiverId}/items/{notificationId}
     const docRef = await addDoc(notificationsRef, notificationData);
     console.log(`Instagram-style ${type} notification created successfully with ID:`, docRef.id);
     
     // After successful creation, update with additional fields (this bypasses the strict create rule)
-    if (additionalData?.postId || additionalData?.commentText) {
-      const updateData: any = {
-        aggregatedCount: 1,
-        lastActors: [senderId]
-      };
-      
-      if (additionalData.postId) {
-        updateData.postId = additionalData.postId;
-      }
-      
-      if (additionalData.commentText) {
-        updateData.commentText = additionalData.commentText;
-      }
-      
-      await updateDoc(docRef, updateData);
-      console.log('Additional fields added after creation');
-    } else {
-      // For follow requests and accepts, still add aggregation fields
-      await updateDoc(docRef, {
-        aggregatedCount: 1,
-        lastActors: [senderId]
-      });
+    const updateData: any = {
+      aggregatedCount: 1,
+      lastActors: [senderId]
+    };
+    
+    if (additionalData?.postId) {
+      updateData.postId = additionalData.postId;
     }
+    
+    if (additionalData?.commentText) {
+      updateData.commentText = additionalData.commentText;
+    }
+    
+    await updateDoc(docRef, updateData);
+    console.log('Additional fields added after creation');
     
     return docRef.id;
   } catch (error) {
@@ -184,6 +178,7 @@ export const createInstagramNotification = async (
       console.error('4. timestamp (must be serverTimestamp)');
       console.error('5. seen (must be false)');
       console.error('NO OTHER FIELDS are allowed during creation!');
+      console.error('Document path should be: /notifications/' + receiverId + '/items/');
     }
     
     throw error;
@@ -262,29 +257,48 @@ export const subscribeToInstagramNotifications = (
   });
 };
 
-// Mark notification as seen
+// Mark notification as seen - ONLY update the seen field as allowed by rules
 export const markInstagramNotificationAsSeen = async (userId: string, notificationId: string) => {
   try {
-    await updateDoc(doc(db, 'notifications', userId, 'items', notificationId), {
+    console.log('Marking notification as seen:', { userId, notificationId });
+    
+    // Path: /notifications/{userId}/items/{notificationId}
+    const notificationRef = doc(db, 'notifications', userId, 'items', notificationId);
+    
+    // Only update the 'seen' field as allowed by the rules
+    await updateDoc(notificationRef, {
       seen: true
     });
+    
+    console.log('Notification marked as seen successfully');
   } catch (error) {
     console.error('Error marking Instagram notification as seen:', error);
+    console.error('Error details:', {
+      code: error?.code,
+      message: error?.message,
+      userId,
+      notificationId
+    });
   }
 };
 
-// Mark all notifications as seen
+// Mark all notifications as seen - batch update only the seen field
 export const markAllInstagramNotificationsAsSeen = async (userId: string) => {
   try {
+    console.log('Marking all notifications as seen for user:', userId);
+    
     const q = query(
       collection(db, 'notifications', userId, 'items'),
       where('seen', '==', false)
     );
     
     const snapshot = await getDocs(q);
+    console.log('Found', snapshot.docs.length, 'unseen notifications to mark as seen');
+    
     const batch = writeBatch(db);
     
     snapshot.docs.forEach(doc => {
+      // Only update the 'seen' field as allowed by rules
       batch.update(doc.ref, { seen: true });
     });
     
@@ -295,12 +309,24 @@ export const markAllInstagramNotificationsAsSeen = async (userId: string) => {
   }
 };
 
-// Delete notification
+// Delete notification - user can delete their own notifications
 export const deleteInstagramNotification = async (userId: string, notificationId: string) => {
   try {
-    await deleteDoc(doc(db, 'notifications', userId, 'items', notificationId));
+    console.log('Deleting notification:', { userId, notificationId });
+    
+    // Path: /notifications/{userId}/items/{notificationId}
+    const notificationRef = doc(db, 'notifications', userId, 'items', notificationId);
+    await deleteDoc(notificationRef);
+    
+    console.log('Notification deleted successfully');
   } catch (error) {
     console.error('Error deleting Instagram notification:', error);
+    console.error('Error details:', {
+      code: error?.code,
+      message: error?.message,
+      userId,
+      notificationId
+    });
   }
 };
 
