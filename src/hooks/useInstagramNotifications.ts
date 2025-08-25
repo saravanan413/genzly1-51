@@ -100,9 +100,9 @@ export const useInstagramNotifications = () => {
         return 'liked your post';
       case 'comment':
         return notification.commentText ? `commented: "${notification.commentText}"` : 'commented on your post';
-      case 'follow_request':
+      case 'followrequest':
         return 'requested to follow you';
-      case 'follow_accept':
+      case 'followaccept':
         return 'accepted your follow request';
       default:
         return 'interacted with your content';
