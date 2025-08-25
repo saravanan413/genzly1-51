@@ -50,7 +50,7 @@ service cloud.firestore {
       }
     }
     
-    // 🔔 NOTIFICATIONS - New Instagram-like structure
+    // 🔔 NOTIFICATIONS - Updated to match code expectations
     match /notifications/{userId} {
       // Only the notification owner can read their notifications
       allow read: if request.auth != null && request.auth.uid == userId;
@@ -62,13 +62,37 @@ service cloud.firestore {
         // Owner can update/delete their notifications (mark as seen, delete)
         allow update, delete: if request.auth != null && request.auth.uid == userId;
         
-        // Anyone can create notifications for others (sender creates notification for receiver)
-        allow create: if request.auth != null 
-          && request.resource.data.receiverId == userId
-          && request.resource.data.senderId == request.auth.uid
-          && request.resource.data.type in ['like', 'comment', 'follow_request', 'follow_accept']
-          && request.resource.data.timestamp is timestamp
-          && request.resource.data.seen == false;
+        // Allow creation with both underscore and no-underscore versions for compatibility
+        allow create: if (
+          // Case 1: Client user creates with current code format
+          (request.auth != null &&
+           request.resource.data.keys().hasAll(['receiverId','senderId','type','timestamp','seen']) &&
+           request.resource.data.receiverId == userId &&
+           request.resource.data.senderId == request.auth.uid &&
+           request.resource.data.type in ['like', 'comment', 'followrequest', 'followaccept'] &&
+           request.resource.data.timestamp is timestamp &&
+           request.resource.data.seen == false
+          )
+          ||
+          // Case 2: Legacy format with underscores for backward compatibility
+          (request.auth != null &&
+           request.resource.data.keys().hasAll(['receiverId','senderId','type','timestamp','seen']) &&
+           request.resource.data.receiverId == userId &&
+           request.resource.data.senderId == request.auth.uid &&
+           request.resource.data.type in ['like', 'comment', 'follow_request', 'follow_accept'] &&
+           request.resource.data.timestamp is timestamp &&
+           request.resource.data.seen == false
+          )
+          ||
+          // Case 3: Cloud Function (Admin SDK bypasses rules anyway)
+          (request.auth == null &&
+           request.resource.data.keys().hasAll(['receiverId','senderId','type','timestamp','seen']) &&
+           request.resource.data.receiverId == userId &&
+           request.resource.data.type in ['like', 'comment', 'followrequest', 'followaccept', 'follow_request', 'follow_accept'] &&
+           request.resource.data.timestamp is timestamp &&
+           request.resource.data.seen == false
+          )
+        );
       }
     }
     
