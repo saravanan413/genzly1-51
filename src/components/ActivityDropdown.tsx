@@ -2,7 +2,7 @@
 import React, { useEffect } from 'react';
 import { Heart, MessageCircle, UserPlus, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useNotifications } from '../hooks/useNotifications';
+import { useInstagramNotifications } from '../hooks/useInstagramNotifications';
 import { useAuth } from '../contexts/AuthContext';
 import FollowRequestNotification from './FollowRequestNotification';
 
@@ -20,7 +20,7 @@ const ActivityDropdown: React.FC<ActivityDropdownProps> = ({ isOpen = false }) =
     markAllAsSeen,
     getNotificationMessage, 
     getRelativeTime 
-  } = useNotifications();
+  } = useInstagramNotifications();
 
   // Mark all notifications as seen when dropdown is opened
   useEffect(() => {
@@ -39,9 +39,9 @@ const ActivityDropdown: React.FC<ActivityDropdownProps> = ({ isOpen = false }) =
         return <Heart className="text-red-500" size={16} />;
       case 'comment':
         return <MessageCircle className="text-blue-500" size={16} />;
-      case 'follow_request':
+      case 'followrequest':
         return <User className="text-blue-500" size={16} />;
-      case 'follow_accept':
+      case 'followaccept':
         return <UserPlus className="text-green-500" size={16} />;
       default:
         return <User className="text-gray-400" size={16} />;
@@ -50,7 +50,7 @@ const ActivityDropdown: React.FC<ActivityDropdownProps> = ({ isOpen = false }) =
 
   const handleNotificationClick = async (notification: any) => {
     // Don't handle clicks for follow requests (they have their own buttons)
-    if (notification.type === 'follow_request') {
+    if (notification.type === 'followrequest') {
       return;
     }
 
@@ -64,7 +64,7 @@ const ActivityDropdown: React.FC<ActivityDropdownProps> = ({ isOpen = false }) =
       if (notification.postId) {
         navigate(`/post/${notification.postId}`);
       }
-    } else if (notification.type === 'follow_accept') {
+    } else if (notification.type === 'followaccept') {
       navigate(`/user/${notification.senderId}`);
     }
   };
@@ -104,7 +104,7 @@ const ActivityDropdown: React.FC<ActivityDropdownProps> = ({ isOpen = false }) =
     <div className="space-y-3">
       {recentNotifications.map((notification) => {
         // Handle follow requests specially
-        if (notification.type === 'follow_request' && currentUser) {
+        if (notification.type === 'followrequest' && currentUser) {
           return (
             <div key={notification.id} className="p-2">
               <FollowRequestNotification

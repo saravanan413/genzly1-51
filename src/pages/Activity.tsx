@@ -4,7 +4,7 @@ import { Heart, MessageCircle, UserPlus, User, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import FollowRequestNotification from '../components/FollowRequestNotification';
-import { useNotifications } from '../hooks/useNotifications';
+import { useInstagramNotifications } from '../hooks/useInstagramNotifications';
 import { useAuth } from '../contexts/AuthContext';
 
 const Activity = () => {
@@ -16,7 +16,7 @@ const Activity = () => {
     markAsSeen, 
     getNotificationMessage, 
     getRelativeTime 
-  } = useNotifications();
+  } = useInstagramNotifications();
 
   const getActivityIcon = (type: string) => {
     switch (type) {
@@ -24,9 +24,9 @@ const Activity = () => {
         return <Heart className="text-red-500" size={16} />;
       case 'comment':
         return <MessageCircle className="text-blue-500" size={16} />;
-      case 'follow_request':
+      case 'followrequest':
         return <User className="text-blue-500" size={16} />;
-      case 'follow_accept':
+      case 'followaccept':
         return <UserPlus className="text-green-500" size={16} />;
       default:
         return <User className="text-gray-400" size={16} />;
@@ -35,7 +35,7 @@ const Activity = () => {
 
   const handleNotificationClick = async (notification: any) => {
     // Don't handle clicks for follow requests (they have their own buttons)
-    if (notification.type === 'follow_request') {
+    if (notification.type === 'followrequest') {
       return;
     }
 
@@ -49,7 +49,7 @@ const Activity = () => {
       if (notification.postId) {
         navigate(`/post/${notification.postId}`);
       }
-    } else if (notification.type === 'follow_accept') {
+    } else if (notification.type === 'followaccept') {
       navigate(`/user/${notification.senderId}`);
     }
   };
@@ -96,7 +96,7 @@ const Activity = () => {
             <div className="space-y-4">
               {notifications.map((notification) => {
                 // Handle follow requests specially
-                if (notification.type === 'follow_request' && currentUser) {
+                if (notification.type === 'followrequest' && currentUser) {
                   return (
                     <FollowRequestNotification
                       key={notification.id}
@@ -124,7 +124,7 @@ const Activity = () => {
                   <div 
                     key={notification.id} 
                     className={`flex items-center space-x-3 p-3 bg-card rounded-lg border transition-colors ${
-                      notification.type !== 'follow_request' ? 'cursor-pointer hover:bg-gray-50' : ''
+                      notification.type !== 'followrequest' ? 'cursor-pointer hover:bg-gray-50' : ''
                     } ${!notification.seen ? 'ring-2 ring-blue-500/20 bg-blue-50/50' : ''}`}
                     onClick={() => handleNotificationClick(notification)}
                   >

@@ -57,13 +57,6 @@ export const createInstagramNotification = async (
 
     console.log('Creating notification with strict rule compliance:', { receiverId, senderId, type, additionalData });
 
-    // Get sender profile for validation
-    const senderProfile = await getUserProfile(senderId);
-    if (!senderProfile) {
-      console.error('Could not find sender profile for:', senderId);
-      return;
-    }
-
     const notificationsRef = collection(db, 'notifications', receiverId, 'items');
 
     // For likes, check if there's already a like notification for this post
