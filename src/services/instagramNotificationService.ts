@@ -20,7 +20,7 @@ import { getUserProfile } from './firestoreService';
 
 export interface InstagramNotification {
   id: string;
-  type: 'like' | 'comment' | 'follow_request' | 'follow_accept';
+  type: 'like' | 'comment' | 'followrequest' | 'followaccept';
   senderId: string;
   receiverId: string;
   timestamp: any;
@@ -38,11 +38,11 @@ export interface InstagramNotification {
   postThumbnail?: string;
 }
 
-// Create notification with Instagram-like aggregation - STRICT Firestore rule compliance
+// Create notification with strict Firestore rule compliance
 export const createInstagramNotification = async (
   receiverId: string,
   senderId: string,
-  type: 'like' | 'comment' | 'follow_request' | 'follow_accept',
+  type: 'like' | 'comment' | 'followrequest' | 'followaccept',
   additionalData?: {
     postId?: string;
     commentText?: string;
@@ -55,7 +55,7 @@ export const createInstagramNotification = async (
       return;
     }
 
-    console.log('Creating Instagram-style notification:', { receiverId, senderId, type, additionalData });
+    console.log('Creating notification with strict rule compliance:', { receiverId, senderId, type, additionalData });
 
     // Get sender profile for validation
     const senderProfile = await getUserProfile(senderId);
@@ -63,8 +63,6 @@ export const createInstagramNotification = async (
       console.error('Could not find sender profile for:', senderId);
       return;
     }
-
-    console.log('Sender profile found:', { username: senderProfile.username, displayName: senderProfile.displayName });
 
     const notificationsRef = collection(db, 'notifications', receiverId, 'items');
 
@@ -89,10 +87,10 @@ export const createInstagramNotification = async (
         
         await updateDoc(existingDoc.ref, {
           timestamp: serverTimestamp(),
-          seen: false, // Mark as unseen since there's new activity
+          seen: false,
           aggregatedCount: (existingData.aggregatedCount || 1) + 1,
           lastActors: newActors,
-          senderId: senderId // Most recent actor becomes the primary sender
+          senderId: senderId
         });
         
         console.log('Updated aggregated like notification');
@@ -100,12 +98,12 @@ export const createInstagramNotification = async (
       }
     }
 
-    // For follow requests, check for duplicates to prevent spam
-    if (type === 'follow_request') {
+    // For follow requests, check for duplicates
+    if (type === 'followrequest') {
       const existingQuery = query(
         notificationsRef,
         where('senderId', '==', senderId),
-        where('type', '==', 'follow_request'),
+        where('type', '==', 'followrequest'),
         limit(1)
       );
       
@@ -121,25 +119,23 @@ export const createInstagramNotification = async (
       }
     }
 
-    // CRITICAL: Create notification with ONLY the 5 required fields as per Firestore rule
-    // Rule requires: receiverId, senderId, type, timestamp, seen
+    // Create notification with EXACTLY the 5 required fields as per Firestore rules
     const notificationData = {
-      receiverId,    // MUST match the document path userId
-      senderId,      // MUST match request.auth.uid  
-      type,          // MUST be one of: 'like', 'comment', 'follow_request', 'follow_accept'
-      timestamp: serverTimestamp(),  // Using serverTimestamp() which becomes request.time in rules
-      seen: false    // MUST be false initially
+      receiverId,    // Must match the document path userId
+      senderId,      // Must match request.auth.uid  
+      type,          // Must be one of: 'like', 'comment', 'followrequest', 'followaccept'
+      timestamp: serverTimestamp(),
+      seen: false    // Must be false initially
     };
 
-    console.log('Creating notification with EXACT rule-compliant fields:', notificationData);
-    console.log('Document path: /notifications/' + receiverId + '/items/');
-    console.log('Field count:', Object.keys(notificationData).length, '(must be exactly 5)');
+    console.log('Creating notification with rule-compliant data:', notificationData);
+    console.log('Target path: /notifications/' + receiverId + '/items/');
 
-    // Create the notification document at /notifications/{receiverId}/items/{notificationId}
+    // Create the notification document
     const docRef = await addDoc(notificationsRef, notificationData);
-    console.log(`Instagram-style ${type} notification created successfully with ID:`, docRef.id);
+    console.log(`Notification created successfully with ID:`, docRef.id);
     
-    // After successful creation, update with additional fields (this bypasses the strict create rule)
+    // After successful creation, update with additional fields
     const updateData: any = {
       aggregatedCount: 1,
       lastActors: [senderId]
@@ -158,7 +154,7 @@ export const createInstagramNotification = async (
     
     return docRef.id;
   } catch (error) {
-    console.error('Error creating Instagram notification:', error);
+    console.error('Error creating notification:', error);
     console.error('Error details:', {
       code: error?.code,
       message: error?.message,
@@ -167,17 +163,11 @@ export const createInstagramNotification = async (
       type
     });
     
-    // Log specific permission errors
     if (error?.code === 'permission-denied') {
-      console.error('PERMISSION DENIED - Firestore rule violation detected!');
-      console.error('Check if notification data has EXACTLY these 5 fields:');
-      console.error('1. receiverId (must match document path userId)');
-      console.error('2. senderId (must match request.auth.uid)');
-      console.error('3. type (must be: like, comment, follow_request, follow_accept)');
-      console.error('4. timestamp (must be serverTimestamp)');
-      console.error('5. seen (must be false)');
-      console.error('NO OTHER FIELDS are allowed during creation!');
-      console.error('Document path should be: /notifications/' + receiverId + '/items/');
+      console.error('PERMISSION DENIED - Firestore rule violation!');
+      console.error('Required fields: receiverId, senderId, type, timestamp, seen');
+      console.error('Valid types: like, comment, followrequest, followaccept');
+      console.error('Path: /notifications/' + receiverId + '/items/');
     }
     
     throw error;
@@ -256,12 +246,11 @@ export const subscribeToInstagramNotifications = (
   });
 };
 
-// Mark notification as seen - ONLY update the seen field as allowed by rules
+// Mark notification as seen
 export const markInstagramNotificationAsSeen = async (userId: string, notificationId: string) => {
   try {
     console.log('Marking notification as seen:', { userId, notificationId });
     
-    // Path: /notifications/{userId}/items/{notificationId}
     const notificationRef = doc(db, 'notifications', userId, 'items', notificationId);
     
     // Only update the 'seen' field as allowed by the rules
@@ -271,17 +260,11 @@ export const markInstagramNotificationAsSeen = async (userId: string, notificati
     
     console.log('Notification marked as seen successfully');
   } catch (error) {
-    console.error('Error marking Instagram notification as seen:', error);
-    console.error('Error details:', {
-      code: error?.code,
-      message: error?.message,
-      userId,
-      notificationId
-    });
+    console.error('Error marking notification as seen:', error);
   }
 };
 
-// Mark all notifications as seen - batch update only the seen field
+// Mark all notifications as seen
 export const markAllInstagramNotificationsAsSeen = async (userId: string) => {
   try {
     console.log('Marking all notifications as seen for user:', userId);
@@ -308,7 +291,7 @@ export const markAllInstagramNotificationsAsSeen = async (userId: string) => {
   }
 };
 
-// Delete notification - user can delete their own notifications
+// Delete notification
 export const deleteInstagramNotification = async (userId: string, notificationId: string) => {
   try {
     console.log('Deleting notification:', { userId, notificationId });
@@ -329,7 +312,7 @@ export const deleteInstagramNotification = async (userId: string, notificationId
   }
 };
 
-// Remove notification when user performs reverse action (unlike, unfollow)
+// Remove notification when user performs reverse action
 export const removeInstagramNotification = async (
   receiverId: string,
   senderId: string,
@@ -337,7 +320,7 @@ export const removeInstagramNotification = async (
   postId?: string
 ) => {
   try {
-    console.log('Removing Instagram notification:', { receiverId, senderId, type, postId });
+    console.log('Removing notification:', { receiverId, senderId, type, postId });
     
     const q = query(
       collection(db, 'notifications', receiverId, 'items'),
@@ -350,29 +333,25 @@ export const removeInstagramNotification = async (
     console.log('Found notifications to remove/update:', snapshot.docs.length);
     
     if (type === 'like' && snapshot.docs.length > 0) {
-      // For likes, handle aggregation
       const doc = snapshot.docs[0];
       const data = doc.data();
       
       if (data.aggregatedCount > 1) {
-        // Remove sender from aggregation
         const newActors = (data.lastActors || []).filter(id => id !== senderId);
         const newCount = (data.aggregatedCount || 1) - 1;
         
         await updateDoc(doc.ref, {
           aggregatedCount: newCount,
           lastActors: newActors,
-          senderId: newActors[0] || data.senderId, // Update primary sender
+          senderId: newActors[0] || data.senderId,
           timestamp: serverTimestamp()
         });
         console.log('Updated aggregated like notification');
       } else {
-        // Delete if it was the only like
         await deleteDoc(doc.ref);
         console.log('Deleted last like notification');
       }
     } else {
-      // For other types, just delete all matching notifications
       const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
       await Promise.all(deletePromises);
       console.log(`Deleted ${snapshot.docs.length} ${type} notifications`);
@@ -380,11 +359,11 @@ export const removeInstagramNotification = async (
     
     console.log(`Successfully removed/updated ${type} notification`);
   } catch (error) {
-    console.error('Error removing Instagram notification:', error);
+    console.error('Error removing notification:', error);
   }
 };
 
-// Specific notification creators
+// Specific notification creators with correct type names
 export const createLikeNotification = async (
   postOwnerId: string,
   likerId: string,
@@ -409,12 +388,12 @@ export const createFollowRequestNotification = async (
   targetUserId: string,
   requesterId: string
 ) => {
-  return await createInstagramNotification(targetUserId, requesterId, 'follow_request');
+  return await createInstagramNotification(targetUserId, requesterId, 'followrequest');
 };
 
 export const createFollowAcceptNotification = async (
   requesterId: string,
   accepterId: string
 ) => {
-  return await createInstagramNotification(requesterId, accepterId, 'follow_accept');
+  return await createInstagramNotification(requesterId, accepterId, 'followaccept');
 };
