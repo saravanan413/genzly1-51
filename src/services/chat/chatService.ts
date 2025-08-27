@@ -1,3 +1,4 @@
+
 import { 
   collection, 
   addDoc, 
@@ -12,7 +13,8 @@ import {
   setDoc,
   deleteDoc,
   getDoc,
-  Timestamp
+  Timestamp,
+  writeBatch
 } from 'firebase/firestore';
 import { db, sanitizeMessage } from '../../config/firebase';
 import { sendMessageToConversation } from './enhancedMessageService';
@@ -37,7 +39,6 @@ export const sendChatMessage = async (
     type
   });
 
-  // Validate required parameters
   if (!currentUserId || !receiverId) {
     throw new Error('Missing currentUserId or receiverId');
   }
@@ -47,17 +48,73 @@ export const sendChatMessage = async (
   }
 
   try {
-    // Send the message using the new conversation structure
-    const messageId = await sendMessageToConversation(
-      currentUserId,
+    const chatId = createChatId(currentUserId, receiverId);
+    const batch = writeBatch(db);
+    
+    // 1. Add message to chats/{chatId}/messages
+    const messagesRef = collection(db, 'chats', chatId, 'messages');
+    const messageDocRef = doc(messagesRef);
+    
+    const messageData = {
+      text: text.trim(),
+      senderId: currentUserId,
       receiverId,
-      text.trim(),
+      timestamp: serverTimestamp(),
+      seen: false,
+      status: 'sent',
       type,
-      mediaURL
-    );
+      mediaURL: mediaURL || null,
+      delivered: true
+    };
 
-    logger.debug('Message sent successfully', { messageId });
-    return messageId;
+    batch.set(messageDocRef, messageData);
+
+    // 2. Update main chat document
+    const chatDocRef = doc(db, 'chats', chatId);
+    batch.set(chatDocRef, {
+      participants: [currentUserId, receiverId],
+      lastMessage: text.trim(),
+      timestamp: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    // 3. Get user data for display names
+    const [senderDoc, receiverDoc] = await Promise.all([
+      getDoc(doc(db, 'users', currentUserId)),
+      getDoc(doc(db, 'users', receiverId))
+    ]);
+
+    const senderData = senderDoc.exists() ? senderDoc.data() : {};
+    const receiverData = receiverDoc.exists() ? receiverDoc.data() : {};
+
+    // 4. Update sender's userChats
+    const senderChatRef = doc(db, 'userChats', currentUserId, chatId);
+    batch.set(senderChatRef, {
+      chatId,
+      otherUserId: receiverId,
+      otherUserDisplayName: receiverData.displayName || receiverData.username || 'Unknown User',
+      otherUserAvatar: receiverData.avatar,
+      lastMessage: text.trim(),
+      timestamp: serverTimestamp(),
+      seen: true // Sender has seen their own message
+    });
+
+    // 5. Update receiver's userChats
+    const receiverChatRef = doc(db, 'userChats', receiverId, chatId);
+    batch.set(receiverChatRef, {
+      chatId,
+      otherUserId: currentUserId,
+      otherUserDisplayName: senderData.displayName || senderData.username || 'Unknown User',
+      otherUserAvatar: senderData.avatar,
+      lastMessage: text.trim(),
+      timestamp: serverTimestamp(),
+      seen: false // Receiver hasn't seen the message yet
+    });
+
+    await batch.commit();
+    
+    logger.debug('Message sent successfully', { messageId: messageDocRef.id });
+    return messageDocRef.id;
   } catch (error) {
     logger.error('Complete message send process failed', error);
     throw error;

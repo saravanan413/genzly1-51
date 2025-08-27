@@ -36,7 +36,7 @@ const Chat = () => {
 
   // Convert UserChatData to ChatPreview format expected by ChatList component
   const chatPreviews = userChats.map(chat => ({
-    chatId: chat.conversationId,
+    chatId: chat.chatId,
     otherUser: {
       id: chat.otherUserId,
       username: chat.otherUserDisplayName,
@@ -46,7 +46,7 @@ const Chat = () => {
     lastMessage: chat.lastMessage ? {
       text: chat.lastMessage,
       timestamp: chat.timestamp?.toDate?.()?.getTime() || Date.now(),
-      senderId: chat.lastMessageSenderId,
+      senderId: '', // We don't store this in userChats, but it's not needed for display
       seen: chat.seen
     } : null,
     unreadCount: chat.seen ? 0 : 1
@@ -84,7 +84,6 @@ const Chat = () => {
             <ChatHeader onNewChat={handleNewChat} />
           </div>
           
-          {/* Notes Bar */}
           <NotesBar />
           
           <div className="p-4 md:p-6">
