@@ -1,11 +1,23 @@
+
 import { 
+  collection, 
+  addDoc, 
+  query, 
+  orderBy, 
+  onSnapshot, 
+  updateDoc, 
   doc,
-  getDoc
+  serverTimestamp,
+  where,
+  getDocs,
+  setDoc,
+  deleteDoc,
+  Timestamp
 } from 'firebase/firestore';
-import { db } from '../../config/firebase';
+import { db, sanitizeMessage } from '../config/firebase';
 import { sendMessageToConversation } from './enhancedMessageService';
 import { createConversationId } from './conversationService';
-import { logger } from '../../utils/logger';
+import { logger } from '../utils/logger';
 
 export const createChatId = (userId1: string, userId2: string): string => {
   return createConversationId(userId1, userId2);

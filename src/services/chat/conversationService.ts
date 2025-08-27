@@ -135,10 +135,19 @@ export const subscribeToUserChats = (
   const q = query(userChatsRef, orderBy('timestamp', 'desc'), limit(50));
 
   return onSnapshot(q, (snapshot) => {
-    const chats = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as UserChatData[];
+    const chats = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        conversationId: data.conversationId || doc.id,
+        otherUserId: data.otherUserId || '',
+        otherUserDisplayName: data.otherUserDisplayName || 'Unknown User',
+        otherUserAvatar: data.otherUserAvatar,
+        lastMessage: data.lastMessage || '',
+        lastMessageSenderId: data.lastMessageSenderId || '',
+        timestamp: data.timestamp,
+        seen: data.seen || false
+      } as UserChatData;
+    });
 
     logger.debug('UserChats updated', { chatCount: chats.length });
     callback(chats);
