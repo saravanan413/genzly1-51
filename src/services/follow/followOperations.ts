@@ -1,3 +1,4 @@
+
 import { doc, setDoc, deleteDoc, getDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { createFollowRequestNotification, createFollowAcceptNotification, removeInstagramNotification } from '../instagramNotificationService';
@@ -163,6 +164,56 @@ export const followUserDirectly = async (followerId: string, targetUserId: strin
     return true;
   } catch (error) {
     console.error('Error following user directly:', error);
+    return false;
+  }
+};
+
+export const followUser = async (followerId: string, targetUserId: string): Promise<boolean> => {
+  try {
+    console.log('Follow user called:', { followerId, targetUserId });
+    
+    // Get target user's profile to check if private
+    const targetUserDoc = await getDoc(doc(db, 'users', targetUserId));
+    
+    if (!targetUserDoc.exists()) {
+      console.error('Target user not found');
+      return false;
+    }
+    
+    const targetUserData = targetUserDoc.data();
+    
+    // If private account, send follow request
+    if (targetUserData.isPrivate) {
+      console.log('Target user is private, sending follow request');
+      return await sendFollowRequest(followerId, targetUserId);
+    } else {
+      // If public account, follow directly
+      console.log('Target user is public, following directly');
+      return await followUserDirectly(followerId, targetUserId);
+    }
+  } catch (error) {
+    console.error('Error in followUser:', error);
+    return false;
+  }
+};
+
+export const removeFollower = async (currentUserId: string, followerUserId: string): Promise<boolean> => {
+  try {
+    console.log('Removing follower:', { currentUserId, followerUserId });
+    
+    // Remove from current user's followers collection
+    const followerRef = doc(db, 'users', currentUserId, 'followers', followerUserId);
+    
+    // Remove from follower's following collection
+    const followingRef = doc(db, 'users', followerUserId, 'following', currentUserId);
+    
+    await deleteDoc(followerRef);
+    await deleteDoc(followingRef);
+    
+    console.log('Follower removed successfully');
+    return true;
+  } catch (error) {
+    console.error('Error removing follower:', error);
     return false;
   }
 };
