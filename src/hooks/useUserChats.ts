@@ -36,8 +36,8 @@ export const useUserChats = () => {
     logger.debug('Setting up userChats subscription', { userId: currentUser.uid });
     setLoading(true);
 
-    // Listen to userChats/{currentUserId} collection
-    const userChatsRef = collection(db, 'userChats', currentUser.uid);
+    // Listen to userChats/{currentUserId}/chats subcollection
+    const userChatsRef = collection(db, 'userChats', currentUser.uid, 'chats');
     const q = query(
       userChatsRef, 
       orderBy('timestamp', 'desc'),

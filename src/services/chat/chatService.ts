@@ -87,8 +87,8 @@ export const sendChatMessage = async (
     const senderData = senderDoc.exists() ? senderDoc.data() : {};
     const receiverData = receiverDoc.exists() ? receiverDoc.data() : {};
 
-    // 4. Update sender's userChats
-    const senderChatRef = doc(db, 'userChats', currentUserId, chatId);
+    // 4. Update sender's userChats subcollection
+    const senderChatRef = doc(db, 'userChats', currentUserId, 'chats', chatId);
     batch.set(senderChatRef, {
       chatId,
       otherUserId: receiverId,
@@ -99,8 +99,8 @@ export const sendChatMessage = async (
       seen: true // Sender has seen their own message
     });
 
-    // 5. Update receiver's userChats
-    const receiverChatRef = doc(db, 'userChats', receiverId, chatId);
+    // 5. Update receiver's userChats subcollection
+    const receiverChatRef = doc(db, 'userChats', receiverId, 'chats', chatId);
     batch.set(receiverChatRef, {
       chatId,
       otherUserId: currentUserId,
