@@ -1,28 +1,20 @@
 
 import { 
-  collection, 
-  addDoc, 
-  query, 
-  orderBy, 
-  onSnapshot, 
-  updateDoc, 
   doc,
-  serverTimestamp,
-  where,
-  getDocs,
-  setDoc,
-  deleteDoc,
   getDoc,
-  Timestamp,
-  writeBatch
+  setDoc,
+  serverTimestamp
 } from 'firebase/firestore';
-import { db, sanitizeMessage } from '../../config/firebase';
-import { sendMessageToConversation } from './enhancedMessageService';
-import { createConversationId } from './conversationService';
+import { db } from '../../config/firebase';
+import { sendMessage } from './messageService';
 import { logger } from '../../utils/logger';
 
 export const createChatId = (userId1: string, userId2: string): string => {
-  return createConversationId(userId1, userId2);
+  // Ensure consistent chatId by sorting UIDs alphabetically
+  const sortedIds = [userId1, userId2].sort();
+  const chatId = sortedIds.join('_');
+  logger.debug('Generated chatId', { chatId, userId1, userId2 });
+  return chatId;
 };
 
 export const sendChatMessage = async (
@@ -39,6 +31,7 @@ export const sendChatMessage = async (
     type
   });
 
+  // Validate required parameters
   if (!currentUserId || !receiverId) {
     throw new Error('Missing currentUserId or receiverId');
   }
@@ -47,74 +40,22 @@ export const sendChatMessage = async (
     throw new Error('Message cannot be empty');
   }
 
+  const chatId = createChatId(currentUserId, receiverId);
+  logger.debug('Using chatId', { chatId });
+
   try {
-    const chatId = createChatId(currentUserId, receiverId);
-    const batch = writeBatch(db);
-    
-    // 1. Add message to chats/{chatId}/messages
-    const messagesRef = collection(db, 'chats', chatId, 'messages');
-    const messageDocRef = doc(messagesRef);
-    
-    const messageData = {
-      text: text.trim(),
-      senderId: currentUserId,
+    // Send the message (this will also create/update the chat document)
+    const messageId = await sendMessage(
+      chatId,
+      currentUserId,
       receiverId,
-      timestamp: serverTimestamp(),
-      seen: false,
-      status: 'sent',
+      text.trim(),
       type,
-      mediaURL: mediaURL || null,
-      delivered: true
-    };
+      mediaURL
+    );
 
-    batch.set(messageDocRef, messageData);
-
-    // 2. Update main chat document
-    const chatDocRef = doc(db, 'chats', chatId);
-    batch.set(chatDocRef, {
-      participants: [currentUserId, receiverId],
-      lastMessage: text.trim(),
-      timestamp: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    }, { merge: true });
-
-    // 3. Get user data for display names
-    const [senderDoc, receiverDoc] = await Promise.all([
-      getDoc(doc(db, 'users', currentUserId)),
-      getDoc(doc(db, 'users', receiverId))
-    ]);
-
-    const senderData = senderDoc.exists() ? senderDoc.data() : {};
-    const receiverData = receiverDoc.exists() ? receiverDoc.data() : {};
-
-    // 4. Update sender's userChats subcollection
-    const senderChatRef = doc(db, 'userChats', currentUserId, 'chats', chatId);
-    batch.set(senderChatRef, {
-      chatId,
-      otherUserId: receiverId,
-      otherUserDisplayName: receiverData.displayName || receiverData.username || 'Unknown User',
-      otherUserAvatar: receiverData.avatar,
-      lastMessage: text.trim(),
-      timestamp: serverTimestamp(),
-      seen: true // Sender has seen their own message
-    });
-
-    // 5. Update receiver's userChats subcollection
-    const receiverChatRef = doc(db, 'userChats', receiverId, 'chats', chatId);
-    batch.set(receiverChatRef, {
-      chatId,
-      otherUserId: currentUserId,
-      otherUserDisplayName: senderData.displayName || senderData.username || 'Unknown User',
-      otherUserAvatar: senderData.avatar,
-      lastMessage: text.trim(),
-      timestamp: serverTimestamp(),
-      seen: false // Receiver hasn't seen the message yet
-    });
-
-    await batch.commit();
-    
-    logger.debug('Message sent successfully', { messageId: messageDocRef.id });
-    return messageDocRef.id;
+    logger.debug('Message sent successfully', { messageId });
+    return messageId;
   } catch (error) {
     logger.error('Complete message send process failed', error);
     throw error;
