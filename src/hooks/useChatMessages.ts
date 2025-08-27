@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { subscribeToMessages, markMessagesAsSeen } from '../services/chat/messageService';
+import { ChatMessage as ServiceChatMessage } from '../services/chat/messageService';
 import { ChatMessage, DisplayMessage, FirebaseTimestamp } from '../types/chat';
 import { logger } from '../utils/logger';
 
@@ -19,11 +20,11 @@ export const useChatMessages = (chatId: string, targetUserId: string) => {
     logger.debug('Setting up message subscription for chatId:', chatId);
     setLoading(true);
 
-    const unsubscribe = subscribeToMessages(chatId, (newMessages: ChatMessage[]) => {
+    const unsubscribe = subscribeToMessages(chatId, (newMessages: ServiceChatMessage[]) => {
       logger.debug('Received messages:', newMessages.length);
       
       // Convert the messages to match our ChatMessage type
-      const convertedMessages = newMessages.map(msg => ({
+      const convertedMessages: ChatMessage[] = newMessages.map(msg => ({
         id: msg.id,
         text: msg.content || '',
         senderId: msg.senderId,
@@ -32,7 +33,7 @@ export const useChatMessages = (chatId: string, targetUserId: string) => {
         status: 'delivered' as const,
         delivered: true,
         seen: msg.seen,
-        type: msg.messageType || 'text',
+        type: (msg.messageType || 'text') as 'text' | 'voice' | 'image' | 'video',
         mediaURL: msg.mediaURL
       }));
       
