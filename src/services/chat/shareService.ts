@@ -1,5 +1,6 @@
+
 import { uploadChatMedia } from '../mediaService';
-import { sendMessage } from './chatService';
+import { sendChatMessage } from './chatService';
 import { ensureChatExists } from './chatService';
 import { logger } from '../../utils/logger';
 
@@ -29,9 +30,9 @@ export const shareMediaToChats = async (
         
         // Send message with media
         const messageText = caption || `Shared a ${media.type}`;
-        await sendMessage(
-          chatId,
+        await sendChatMessage(
           senderId,
+          receiverId,
           messageText,
           media.type,
           mediaUrl
