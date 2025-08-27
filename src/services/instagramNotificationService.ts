@@ -20,7 +20,7 @@ import { getUserProfile } from './firestoreService';
 
 export interface InstagramNotification {
   id: string;
-  type: 'like' | 'comment' | 'followrequest' | 'followaccept';
+  type: 'like' | 'comment' | 'follow_request' | 'follow_accept';
   senderId: string;
   receiverId: string;
   timestamp: any;
@@ -42,7 +42,7 @@ export interface InstagramNotification {
 export const createInstagramNotification = async (
   receiverId: string,
   senderId: string,
-  type: 'like' | 'comment' | 'followrequest' | 'followaccept',
+  type: 'like' | 'comment' | 'follow_request' | 'follow_accept',
   additionalData?: {
     postId?: string;
     commentText?: string;
@@ -92,11 +92,11 @@ export const createInstagramNotification = async (
     }
 
     // For follow requests, check for duplicates
-    if (type === 'followrequest') {
+    if (type === 'follow_request') {
       const existingQuery = query(
         notificationsRef,
         where('senderId', '==', senderId),
-        where('type', '==', 'followrequest'),
+        where('type', '==', 'follow_request'),
         limit(1)
       );
       
@@ -116,7 +116,7 @@ export const createInstagramNotification = async (
     const notificationData = {
       receiverId,    // Must match the document path userId
       senderId,      // Must match request.auth.uid  
-      type,          // Must be one of: 'like', 'comment', 'followrequest', 'followaccept'
+      type,          // Must be one of: 'like', 'comment', 'follow_request', 'follow_accept'
       timestamp: serverTimestamp(),
       seen: false    // Must be false initially
     };
@@ -159,7 +159,7 @@ export const createInstagramNotification = async (
     if (error?.code === 'permission-denied') {
       console.error('PERMISSION DENIED - Firestore rule violation!');
       console.error('Required fields: receiverId, senderId, type, timestamp, seen');
-      console.error('Valid types: like, comment, followrequest, followaccept');
+      console.error('Valid types: like, comment, follow_request, follow_accept');
       console.error('Path: /notifications/' + receiverId + '/items/');
     }
     
@@ -381,12 +381,12 @@ export const createFollowRequestNotification = async (
   targetUserId: string,
   requesterId: string
 ) => {
-  return await createInstagramNotification(targetUserId, requesterId, 'followrequest');
+  return await createInstagramNotification(targetUserId, requesterId, 'follow_request');
 };
 
 export const createFollowAcceptNotification = async (
   requesterId: string,
   accepterId: string
 ) => {
-  return await createInstagramNotification(requesterId, accepterId, 'followaccept');
+  return await createInstagramNotification(requesterId, accepterId, 'follow_accept');
 };

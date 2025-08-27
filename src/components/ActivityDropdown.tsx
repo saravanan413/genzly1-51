@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { Heart, MessageCircle, UserPlus, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -39,9 +38,9 @@ const ActivityDropdown: React.FC<ActivityDropdownProps> = ({ isOpen = false }) =
         return <Heart className="text-red-500" size={16} />;
       case 'comment':
         return <MessageCircle className="text-blue-500" size={16} />;
-      case 'followrequest':
+      case 'follow_request':
         return <User className="text-blue-500" size={16} />;
-      case 'followaccept':
+      case 'follow_accept':
         return <UserPlus className="text-green-500" size={16} />;
       default:
         return <User className="text-gray-400" size={16} />;
@@ -50,7 +49,7 @@ const ActivityDropdown: React.FC<ActivityDropdownProps> = ({ isOpen = false }) =
 
   const handleNotificationClick = async (notification: any) => {
     // Don't handle clicks for follow requests (they have their own buttons)
-    if (notification.type === 'followrequest') {
+    if (notification.type === 'follow_request') {
       return;
     }
 
@@ -64,7 +63,7 @@ const ActivityDropdown: React.FC<ActivityDropdownProps> = ({ isOpen = false }) =
       if (notification.postId) {
         navigate(`/post/${notification.postId}`);
       }
-    } else if (notification.type === 'followaccept') {
+    } else if (notification.type === 'follow_accept') {
       navigate(`/user/${notification.senderId}`);
     }
   };
@@ -104,7 +103,7 @@ const ActivityDropdown: React.FC<ActivityDropdownProps> = ({ isOpen = false }) =
     <div className="space-y-3">
       {recentNotifications.map((notification) => {
         // Handle follow requests specially
-        if (notification.type === 'followrequest' && currentUser) {
+        if (notification.type === 'follow_request' && currentUser) {
           return (
             <div key={notification.id} className="p-2">
               <FollowRequestNotification
