@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { createChatId } from '../services/chat/chatService';
-import { useChatMessages } from '../hooks/useChatMessages';
+import { useConversationMessages } from '../hooks/useConversationMessages';
 import { useChatUser } from '../hooks/useChatUser';
 import { useChatActions } from '../hooks/useChatActions';
 import ChatHeader from '../components/chat/ChatHeader';
@@ -35,10 +35,8 @@ const IndividualChat = () => {
   const [newMessage, setNewMessage] = useState('');
   const [shareModalContent, setShareModalContent] = useState<ShareEditModalContent | null>(null);
   
-  const chatId = currentUser && targetUserId ? createChatId(currentUser.uid, targetUserId) : '';
-  
   const { chatUser } = useChatUser(targetUserId || '');
-  const { displayMessages, loading } = useChatMessages(chatId, targetUserId || '');
+  const { displayMessages, loading } = useConversationMessages(targetUserId || '');
   
   const { 
     handleSendMessage, 

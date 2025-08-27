@@ -1,20 +1,14 @@
-
 import { 
   doc,
-  getDoc,
-  setDoc,
-  serverTimestamp
+  getDoc
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
-import { sendMessage } from './messageService';
+import { sendMessageToConversation } from './enhancedMessageService';
+import { createConversationId } from './conversationService';
 import { logger } from '../../utils/logger';
 
 export const createChatId = (userId1: string, userId2: string): string => {
-  // Ensure consistent chatId by sorting UIDs alphabetically
-  const sortedIds = [userId1, userId2].sort();
-  const chatId = sortedIds.join('_');
-  logger.debug('Generated chatId', { chatId, userId1, userId2 });
-  return chatId;
+  return createConversationId(userId1, userId2);
 };
 
 export const sendChatMessage = async (
@@ -40,13 +34,9 @@ export const sendChatMessage = async (
     throw new Error('Message cannot be empty');
   }
 
-  const chatId = createChatId(currentUserId, receiverId);
-  logger.debug('Using chatId', { chatId });
-
   try {
-    // Send the message (this will also create/update the chat document)
-    const messageId = await sendMessage(
-      chatId,
+    // Send the message using the new conversation structure
+    const messageId = await sendMessageToConversation(
       currentUserId,
       receiverId,
       text.trim(),
