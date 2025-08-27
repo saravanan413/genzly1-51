@@ -1,9 +1,10 @@
+
 import React from 'react';
 import { Heart, MessageCircle, UserPlus, User, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import FollowRequestNotification from '../components/FollowRequestNotification';
-import { useInstagramNotifications } from '../hooks/useInstagramNotifications';
+import { useNotifications } from '../hooks/useNotifications';
 import { useAuth } from '../contexts/AuthContext';
 
 const Activity = () => {
@@ -15,7 +16,7 @@ const Activity = () => {
     markAsSeen, 
     getNotificationMessage, 
     getRelativeTime 
-  } = useInstagramNotifications();
+  } = useNotifications();
 
   const getActivityIcon = (type: string) => {
     switch (type) {

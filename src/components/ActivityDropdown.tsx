@@ -1,7 +1,8 @@
+
 import React, { useEffect } from 'react';
 import { Heart, MessageCircle, UserPlus, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useInstagramNotifications } from '../hooks/useInstagramNotifications';
+import { useNotifications } from '../hooks/useNotifications';
 import { useAuth } from '../contexts/AuthContext';
 import FollowRequestNotification from './FollowRequestNotification';
 
@@ -19,7 +20,7 @@ const ActivityDropdown: React.FC<ActivityDropdownProps> = ({ isOpen = false }) =
     markAllAsSeen,
     getNotificationMessage, 
     getRelativeTime 
-  } = useInstagramNotifications();
+  } = useNotifications();
 
   // Mark all notifications as seen when dropdown is opened
   useEffect(() => {

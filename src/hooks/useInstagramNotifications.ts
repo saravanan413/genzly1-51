@@ -25,11 +25,6 @@ export const useInstagramNotifications = () => {
     }
 
     console.log('Setting up Instagram notification subscription for user:', currentUser.uid);
-    console.log('User authentication status:', {
-      uid: currentUser.uid,
-      email: currentUser.email,
-      isAuthenticated: !!currentUser
-    });
 
     // Subscribe to real-time notifications
     const unsubscribe = subscribeToInstagramNotifications(currentUser.uid, (newNotifications) => {
