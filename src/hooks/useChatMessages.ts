@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { subscribeToChatMessages, markMessagesAsSeen } from '../services/chat/messageService';
+import { subscribeToMessages, markMessagesAsSeen } from '../services/chat/messageService';
 import { ChatMessage, DisplayMessage, FirebaseTimestamp } from '../types/chat';
 import { logger } from '../utils/logger';
 
@@ -19,15 +19,29 @@ export const useChatMessages = (chatId: string, targetUserId: string) => {
     logger.debug('Setting up message subscription for chatId:', chatId);
     setLoading(true);
 
-    const unsubscribe = subscribeToChatMessages(chatId, (newMessages: ChatMessage[]) => {
+    const unsubscribe = subscribeToMessages(chatId, (newMessages: ChatMessage[]) => {
       logger.debug('Received messages:', newMessages.length);
       
-      setMessages(newMessages);
+      // Convert the messages to match our ChatMessage type
+      const convertedMessages = newMessages.map(msg => ({
+        id: msg.id,
+        text: msg.content || '',
+        senderId: msg.senderId,
+        receiverId: msg.receiverId,
+        timestamp: msg.timestamp,
+        status: 'delivered' as const,
+        delivered: true,
+        seen: msg.seen,
+        type: msg.messageType || 'text',
+        mediaURL: msg.mediaURL
+      }));
+      
+      setMessages(convertedMessages);
       setLoading(false);
       
       // Auto-mark messages as seen after a short delay
-      if (newMessages.length > 0) {
-        const unseenMessages = newMessages.filter(msg => 
+      if (convertedMessages.length > 0) {
+        const unseenMessages = convertedMessages.filter(msg => 
           msg.receiverId === currentUser.uid && !msg.seen
         );
         
