@@ -1,4 +1,3 @@
-
 import { 
   doc, 
   setDoc, 
@@ -66,7 +65,9 @@ export const followUser = async (currentUserId: string, targetUserId: string): P
 
 export const sendFollowRequest = async (currentUserId: string, targetUserId: string): Promise<boolean> => {
   try {
-    console.log('Sending follow request from', currentUserId, 'to', targetUserId);
+    console.log('🚀 STARTING FOLLOW REQUEST PROCESS');
+    console.log('From user:', currentUserId);
+    console.log('To user:', targetUserId);
 
     if (!currentUserId || !targetUserId) {
       throw new Error('Missing user IDs');
@@ -76,6 +77,8 @@ export const sendFollowRequest = async (currentUserId: string, targetUserId: str
       throw new Error('Cannot send follow request to yourself');
     }
 
+    console.log('✅ Validation passed, creating follow request document...');
+
     // Add follow request to target user's collection
     const followRequestRef = doc(db, 'users', targetUserId, 'followRequests', currentUserId);
     await setDoc(followRequestRef, {
@@ -84,23 +87,45 @@ export const sendFollowRequest = async (currentUserId: string, targetUserId: str
       status: 'pending'
     });
 
-    console.log('Follow request document created successfully');
+    console.log('✅ Follow request document created successfully');
+    console.log('Document path:', followRequestRef.path);
 
-    // Create unified notification - this is the critical part that was missing proper error handling
+    // Create unified notification - this is the critical part
     try {
-      console.log('Creating follow request notification for user:', targetUserId, 'from:', currentUserId);
+      console.log('🔔 Creating follow request notification...');
+      console.log('Target user (notification receiver):', targetUserId);
+      console.log('Requester (notification sender):', currentUserId);
+      
       const notificationId = await createFollowRequestNotification(targetUserId, currentUserId);
-      console.log('Follow request notification created with ID:', notificationId);
+      
+      if (notificationId) {
+        console.log('✅ Follow request notification created successfully!');
+        console.log('Notification ID:', notificationId);
+      } else {
+        console.warn('⚠️ Follow request notification returned null/undefined');
+      }
     } catch (notificationError) {
-      console.error('Failed to create follow request notification:', notificationError);
+      console.error('❌ Failed to create follow request notification:', notificationError);
+      console.error('Notification error details:', {
+        code: notificationError?.code,
+        message: notificationError?.message,
+        stack: notificationError?.stack
+      });
+      
       // Don't fail the entire operation if notification fails
       // The follow request is still valid even if notification fails
+      console.log('⚠️ Continuing despite notification failure - follow request is still valid');
     }
 
-    console.log('Follow request sent successfully');
+    console.log('✅ Follow request process completed successfully!');
     return true;
   } catch (error) {
-    console.error('Error sending follow request:', error);
+    console.error('❌ Error in sendFollowRequest:', error);
+    console.error('Error details:', {
+      code: error?.code,
+      message: error?.message,
+      stack: error?.stack
+    });
     return false;
   }
 };

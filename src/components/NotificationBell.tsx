@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Bell } from 'lucide-react';
-import { useNotifications } from '../hooks/useNotifications';
+import { useUnifiedNotifications } from '../hooks/useUnifiedNotifications';
 
 interface NotificationBellProps {
   className?: string;
@@ -12,7 +12,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
   className = '', 
   size = 24 
 }) => {
-  const { unreadCount } = useNotifications();
+  const { unreadCount } = useUnifiedNotifications();
   const hasUnseen = unreadCount > 0;
 
   return (

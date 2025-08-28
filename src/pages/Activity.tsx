@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Heart, MessageCircle, UserPlus, User, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
@@ -17,6 +16,33 @@ const Activity = () => {
     getNotificationMessage, 
     getRelativeTime 
   } = useUnifiedNotifications();
+
+  // Add debugging for notification loading
+  useEffect(() => {
+    console.log('🎯 Activity page mounted');
+    console.log('Current user:', currentUser?.uid);
+    console.log('Loading state:', loading);
+    console.log('Notifications count:', notifications.length);
+    
+    if (notifications.length > 0) {
+      console.log('📋 All notifications:');
+      notifications.forEach((notification, index) => {
+        console.log(`${index + 1}. ${notification.type} from ${notification.senderProfile?.username} (seen: ${notification.seen})`);
+      });
+      
+      const followRequests = notifications.filter(n => n.type === 'follow_request');
+      console.log('👥 Follow request notifications:', followRequests.length);
+      followRequests.forEach((req, index) => {
+        console.log(`Follow request ${index + 1}:`, {
+          id: req.id,
+          senderId: req.senderId,
+          senderUsername: req.senderProfile?.username,
+          seen: req.seen,
+          timestamp: req.timestamp
+        });
+      });
+    }
+  }, [currentUser, loading, notifications]);
 
   const getActivityIcon = (type: string) => {
     switch (type) {
@@ -55,6 +81,7 @@ const Activity = () => {
   };
 
   if (loading) {
+    console.log('🔄 Activity page is loading...');
     return (
       <Layout>
         <div className="p-4">
@@ -78,6 +105,8 @@ const Activity = () => {
     );
   }
 
+  console.log('🎨 Rendering Activity page with', notifications.length, 'notifications');
+
   return (
     <Layout>
       <div className="p-4">
@@ -95,8 +124,11 @@ const Activity = () => {
           ) : (
             <div className="space-y-4">
               {notifications.map((notification) => {
+                console.log('🔍 Rendering notification:', notification.type, 'from', notification.senderProfile?.username);
+                
                 // Handle follow requests specially
                 if (notification.type === 'follow_request' && currentUser) {
+                  console.log('👤 Rendering follow request notification');
                   return (
                     <FollowRequestNotification
                       key={notification.id}

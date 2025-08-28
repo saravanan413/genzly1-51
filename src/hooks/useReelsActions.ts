@@ -1,180 +1,128 @@
-
 import { useState } from 'react';
-import { useReels } from './useFirebaseData';
-import { useAuth } from '../contexts/AuthContext';
-import { doc, updateDoc, increment, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, arrayRemove, increment, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { createLikeNotification, createFollowRequestNotification } from '../services/notificationService';
+import { useAuth } from '../contexts/AuthContext';
+import { createLikeNotification, createCommentNotification } from '../services/unifiedNotificationService';
+
+interface Comment {
+  id: string;
+  userId: string;
+  username: string;
+  text: string;
+  timestamp: Date;
+}
 
 export const useReelsActions = () => {
-  const { reels: firebaseReels, loading, hasMore, loadMoreReels } = useReels();
-  const { currentUser, userProfile } = useAuth();
-  const [likedReels, setLikedReels] = useState<Set<string>>(new Set());
-  const [savedReels, setSavedReels] = useState<Set<string>>(new Set());
-  const [followedUsers, setFollowedUsers] = useState<Set<string>>(new Set());
+  const [isLiking, setIsLiking] = useState(false);
+  const [isCommenting, setIsCommenting] = useState(false);
+  const { currentUser } = useAuth();
 
-  const handleLike = async (id: string) => {
-    if (!currentUser || !userProfile) return;
-
-    const isLiked = likedReels.has(id);
-    const reel = firebaseReels.find(r => r.id === id);
-    if (!reel) return;
+  const likeReel = async (reelId: string) => {
+    if (!currentUser) return false;
 
     try {
-      setLikedReels(prev => {
-        const newSet = new Set(prev);
-        if (isLiked) {
-          newSet.delete(id);
-        } else {
-          newSet.add(id);
-        }
-        return newSet;
-      });
-
-      // Update reel likes count
-      await updateDoc(doc(db, 'reels', id), {
-        likes: increment(isLiked ? -1 : 1)
-      });
-
-      // Handle like/unlike in likes collection
-      const likeRef = doc(db, 'reels', id, 'likes', currentUser.uid);
+      setIsLiking(true);
+      const reelRef = doc(db, 'reels', reelId);
       
-      if (isLiked) {
-        await deleteDoc(likeRef);
-      } else {
-        await setDoc(likeRef, {
-          userId: currentUser.uid,
-          username: userProfile.username,
-          timestamp: serverTimestamp()
-        });
-
-        // Send like notification
-        await createLikeNotification(
-          reel.userId,
-          currentUser.uid,
-          id
-        );
+      // Get reel data to find the owner
+      const reelDoc = await getDoc(reelRef);
+      if (!reelDoc.exists()) {
+        console.error('Reel not found');
+        return false;
       }
-    } catch (error) {
-      console.error('Error handling reel like:', error);
-    }
-  };
-
-  const handleSave = async (id: string) => {
-    if (!currentUser) return;
-
-    const isSaved = savedReels.has(id);
-
-    try {
-      setSavedReels(prev => {
-        const newSet = new Set(prev);
-        if (isSaved) {
-          newSet.delete(id);
-        } else {
-          newSet.add(id);
-        }
-        return newSet;
-      });
-
-      const saveRef = doc(db, 'users', currentUser.uid, 'saved', id);
       
-      if (isSaved) {
-        await deleteDoc(saveRef);
-      } else {
-        await setDoc(saveRef, {
-          type: 'reel',
-          reelId: id,
-          timestamp: serverTimestamp()
-        });
-      }
-    } catch (error) {
-      console.error('Error handling reel save:', error);
-    }
-  };
-
-  const handleFollow = async (userId: string) => {
-    if (!currentUser || !userProfile) return;
-
-    const isFollowing = followedUsers.has(userId);
-
-    try {
-      setFollowedUsers(prev => {
-        const newSet = new Set(prev);
-        if (isFollowing) {
-          newSet.delete(userId);
-        } else {
-          newSet.add(userId);
-        }
-        return newSet;
+      const reelData = reelDoc.data();
+      const reelOwnerId = reelData.userId;
+      
+      await updateDoc(reelRef, {
+        likes: arrayUnion(currentUser.uid),
+        likeCount: increment(1)
       });
 
-      const followerRef = doc(db, 'followers', userId, 'list', currentUser.uid);
-      const followingRef = doc(db, 'following', currentUser.uid, 'list', userId);
-
-      if (isFollowing) {
-        await deleteDoc(followerRef);
-        await deleteDoc(followingRef);
-        
-        await updateDoc(doc(db, 'users', userId), {
-          followers: increment(-1)
-        });
-        await updateDoc(doc(db, 'users', currentUser.uid), {
-          following: increment(-1)
-        });
-      } else {
-        await setDoc(followerRef, {
-          userId: currentUser.uid,
-          username: userProfile.username,
-          timestamp: serverTimestamp()
-        });
-        await setDoc(followingRef, {
-          userId: userId,
-          timestamp: serverTimestamp()
-        });
-        
-        await updateDoc(doc(db, 'users', userId), {
-          followers: increment(1)
-        });
-        await updateDoc(doc(db, 'users', currentUser.uid), {
-          following: increment(1)
-        });
-
-        await createFollowRequestNotification(
-          userId,
-          currentUser.uid
-        );
+      // Create unified notification for the reel owner (if not liking own reel)
+      if (reelOwnerId && reelOwnerId !== currentUser.uid) {
+        await createLikeNotification(reelOwnerId, currentUser.uid, reelId);
       }
+
+      return true;
     } catch (error) {
-      console.error('Error handling follow:', error);
+      console.error('Error liking reel:', error);
+      return false;
+    } finally {
+      setIsLiking(false);
     }
   };
 
-  // Transform Firebase reels to match expected format
-  const reels = firebaseReels.map(reel => ({
-    id: parseInt(reel.id, 10) || 0,
-    videoUrl: reel.videoURL,
-    videoThumbnail: reel.thumbnailURL || reel.videoURL,
-    user: {
-      name: reel.user.username,
-      avatar: reel.user.avatar || '/placeholder.svg',
-      isFollowing: followedUsers.has(reel.userId)
-    },
-    caption: reel.caption,
-    music: reel.music || `Original Audio - ${reel.user.username}`,
-    likes: reel.likes + (likedReels.has(reel.id) ? 1 : 0),
-    comments: reel.comments,
-    shares: reel.shares,
-    isLiked: likedReels.has(reel.id),
-    isSaved: savedReels.has(reel.id)
-  }));
+  const unlikeReel = async (reelId: string) => {
+    if (!currentUser) return false;
+
+    try {
+      setIsLiking(true);
+      const reelRef = doc(db, 'reels', reelId);
+      
+      await updateDoc(reelRef, {
+        likes: arrayRemove(currentUser.uid),
+        likeCount: increment(-1)
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error unliking reel:', error);
+      return false;
+    } finally {
+      setIsLiking(false);
+    }
+  };
+
+  const addComment = async (reelId: string, commentText: string) => {
+    if (!currentUser || !commentText.trim()) return false;
+
+    try {
+      setIsCommenting(true);
+      
+      // Get reel data to find the owner
+      const reelDoc = await getDoc(doc(db, 'reels', reelId));
+      if (!reelDoc.exists()) {
+        console.error('Reel not found');
+        return false;
+      }
+      
+      const reelData = reelDoc.data();
+      const reelOwnerId = reelData.userId;
+
+      const reelRef = doc(db, 'reels', reelId);
+      const comment = {
+        id: Date.now().toString(),
+        userId: currentUser.uid,
+        username: currentUser.displayName || 'Anonymous',
+        text: commentText.trim(),
+        timestamp: new Date()
+      };
+
+      await updateDoc(reelRef, {
+        comments: arrayUnion(comment),
+        commentCount: increment(1)
+      });
+
+      // Create unified notification for the reel owner (if not commenting on own reel)
+      if (reelOwnerId && reelOwnerId !== currentUser.uid) {
+        await createCommentNotification(reelOwnerId, currentUser.uid, reelId, commentText);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      return false;
+    } finally {
+      setIsCommenting(false);
+    }
+  };
 
   return {
-    reels,
-    loading,
-    hasMore,
-    loadMoreReels,
-    handleLike,
-    handleSave,
-    handleFollow
+    isLiking,
+    isCommenting,
+    likeReel,
+    unlikeReel,
+    addComment
   };
 };

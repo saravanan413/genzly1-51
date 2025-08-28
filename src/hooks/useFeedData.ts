@@ -1,153 +1,144 @@
-
-import { useState } from 'react';
-import { useFeedPosts } from './useFirebaseData';
-import { useAuth } from '../contexts/AuthContext';
-import { doc, updateDoc, increment, getDoc, setDoc, deleteDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { collection, query, orderBy, limit, onSnapshot, startAfter, getDocs, where } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { createLikeNotification, createFollowRequestNotification } from '../services/notificationService';
+import { useAuth } from '../contexts/AuthContext';
+import { Post } from '../types';
+import { createLikeNotification, createCommentNotification } from '../services/unifiedNotificationService';
 
-export const useFeedData = () => {
-  const { posts, loading, hasMore, refreshPosts, loadMorePosts } = useFeedPosts();
-  const { currentUser, userProfile } = useAuth();
-  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
-  const [followedUsers, setFollowedUsers] = useState<Set<string>>(new Set());
+interface UseFeedDataProps {
+  pageSize?: number;
+  userId?: string;
+  category?: string;
+}
 
-  const handleLike = async (postId: string) => {
-    if (!currentUser || !userProfile) return;
+export const useFeedData = ({ pageSize = 10, userId, category }: UseFeedDataProps = {}) => {
+  const { currentUser } = useAuth();
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(true);
+  const [lastVisible, setLastVisible] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
-    const isLiked = likedPosts.has(postId);
-    const post = posts.find(p => p.id === postId);
-    if (!post) return;
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchInitialData = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        let q;
+        if (userId) {
+          // Fetch posts for a specific user
+          q = query(
+            collection(db, 'posts'),
+            where('userId', '==', userId),
+            orderBy('timestamp', 'desc'),
+            limit(pageSize)
+          );
+        } else if (category) {
+          // Fetch posts for a specific category
+           q = query(
+            collection(db, 'posts'),
+            where('category', '==', category),
+            orderBy('timestamp', 'desc'),
+            limit(pageSize)
+          );
+        }
+        else {
+          // Fetch all posts
+          q = query(
+            collection(db, 'posts'),
+            orderBy('timestamp', 'desc'),
+            limit(pageSize)
+          );
+        }
+
+        const snapshot = await getDocs(q);
+
+        if (isMounted) {
+          const newPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
+          setPosts(newPosts);
+          setHasMore(newPosts.length === pageSize);
+          setLastVisible(snapshot.docs[newPosts.length - 1] || null);
+        }
+      } catch (err: any) {
+        if (isMounted) {
+          setError(err.message);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchInitialData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [pageSize, userId, category]);
+
+  const fetchMoreData = async () => {
+    if (!hasMore || loading || !lastVisible) return;
+
+    setLoading(true);
+    setError(null);
 
     try {
-      // Update local state immediately
-      setLikedPosts(prev => {
-        const newSet = new Set(prev);
-        if (isLiked) {
-          newSet.delete(postId);
-        } else {
-          newSet.add(postId);
+      let q;
+       if (userId) {
+          // Fetch posts for a specific user
+          q = query(
+            collection(db, 'posts'),
+            where('userId', '==', userId),
+            orderBy('timestamp', 'desc'),
+            startAfter(lastVisible),
+            limit(pageSize)
+          );
+        } else if (category) {
+          // Fetch posts for a specific category
+           q = query(
+            collection(db, 'posts'),
+            where('category', '==', category),
+            orderBy('timestamp', 'desc'),
+            startAfter(lastVisible),
+            limit(pageSize)
+          );
         }
-        return newSet;
-      });
-
-      // Update post likes count in Firestore
-      const postRef = doc(db, 'posts', postId);
-      await updateDoc(postRef, {
-        likes: increment(isLiked ? -1 : 1)
-      });
-
-      // Handle like/unlike in likes collection
-      const likeRef = doc(db, 'posts', postId, 'likes', currentUser.uid);
-      
-      if (isLiked) {
-        await deleteDoc(likeRef);
-      } else {
-        await setDoc(likeRef, {
-          userId: currentUser.uid,
-          username: userProfile.username,
-          timestamp: serverTimestamp()
-        });
-
-        // Send like notification
-        await createLikeNotification(
-          post.userId,
-          currentUser.uid,
-          postId
-        );
-      }
-    } catch (error) {
-      console.error('Error handling like:', error);
-      // Revert local state on error
-      setLikedPosts(prev => {
-        const newSet = new Set(prev);
-        if (isLiked) {
-          newSet.add(postId);
-        } else {
-          newSet.delete(postId);
+        else {
+          // Fetch all posts
+          q = query(
+            collection(db, 'posts'),
+            orderBy('timestamp', 'desc'),
+            startAfter(lastVisible),
+            limit(pageSize)
+          );
         }
-        return newSet;
-      });
+
+      const snapshot = await getDocs(q);
+
+      const newPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
+      setPosts(prevPosts => [...prevPosts, ...newPosts]);
+      setHasMore(newPosts.length === pageSize);
+      setLastVisible(snapshot.docs[newPosts.length - 1] || null);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleFollow = async (userId: string) => {
-    if (!currentUser || !userProfile) return;
-
-    const isFollowing = followedUsers.has(userId);
-
-    try {
-      // Update local state immediately
-      setFollowedUsers(prev => {
-        const newSet = new Set(prev);
-        if (isFollowing) {
-          newSet.delete(userId);
-        } else {
-          newSet.add(userId);
-        }
-        return newSet;
-      });
-
-      // Update follow relationships in Firestore
-      const followerRef = doc(db, 'followers', userId, 'list', currentUser.uid);
-      const followingRef = doc(db, 'following', currentUser.uid, 'list', userId);
-
-      if (isFollowing) {
-        // Unfollow
-        await deleteDoc(followerRef);
-        await deleteDoc(followingRef);
-        
-        // Update user stats
-        await updateDoc(doc(db, 'users', userId), {
-          followers: increment(-1)
-        });
-        await updateDoc(doc(db, 'users', currentUser.uid), {
-          following: increment(-1)
-        });
-      } else {
-        // Follow
-        await setDoc(followerRef, {
-          userId: currentUser.uid,
-          username: userProfile.username,
-          timestamp: serverTimestamp()
-        });
-        await setDoc(followingRef, {
-          userId: userId,
-          timestamp: serverTimestamp()
-        });
-        
-        // Update user stats
-        await updateDoc(doc(db, 'users', userId), {
-          followers: increment(1)
-        });
-        await updateDoc(doc(db, 'users', currentUser.uid), {
-          following: increment(1)
-        });
-
-        // Send follow notification
-        await createFollowRequestNotification(
-          userId,
-          currentUser.uid
-        );
-      }
-    } catch (error) {
-      console.error('Error handling follow:', error);
-      // Revert local state on error
-      setFollowedUsers(prev => {
-        const newSet = new Set(prev);
-        if (isFollowing) {
-          newSet.add(userId);
-        } else {
-          newSet.delete(userId);
-        }
-        return newSet;
-      });
+  const createLikeNotificationForPost = async (postOwnerId: string, postId: string) => {
+    if (currentUser?.uid) {
+      await createLikeNotification(postOwnerId, currentUser.uid, postId);
     }
   };
 
-  const handleDoubleClick = (postId: string) => {
-    if (!likedPosts.has(postId)) {
-      handleLike(postId);
+  const createCommentNotificationForPost = async (postOwnerId: string, postId: string, commentText?: string) => {
+    if (currentUser?.uid) {
+      await createCommentNotification(postOwnerId, currentUser.uid, postId, commentText);
     }
   };
 
@@ -155,10 +146,9 @@ export const useFeedData = () => {
     posts,
     loading,
     hasMore,
-    loadMorePosts,
-    handleRefresh: refreshPosts,
-    handleLike,
-    handleFollow,
-    handleDoubleClick
+    error,
+    fetchMoreData,
+    createLikeNotification: createLikeNotificationForPost,
+    createCommentNotification: createCommentNotificationForPost,
   };
 };
