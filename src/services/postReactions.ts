@@ -1,3 +1,4 @@
+
 import { 
   doc, 
   updateDoc, 
@@ -8,7 +9,7 @@ import {
   getDoc
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { createLikeNotification, removeInstagramNotification } from './instagramNotificationService';
+import { createLikeNotification, removeUnifiedNotification } from './unifiedNotificationService';
 
 export interface PostReaction {
   userId: string;
@@ -48,11 +49,11 @@ export const likePost = async (postId: string, userId: string, username: string)
     
     console.log('Post updated successfully');
     
-    // Create Instagram-style notification for the post owner (if not liking own post)
+    // Create unified notification for the post owner (if not liking own post)
     if (postOwnerId && postOwnerId !== userId) {
-      console.log('Creating Instagram-style like notification...');
+      console.log('Creating unified like notification...');
       await createLikeNotification(postOwnerId, userId, postId);
-      console.log('Instagram-style like notification created successfully');
+      console.log('Unified like notification created successfully');
     } else {
       console.log('Not creating notification - user liked own post or no owner found');
     }
@@ -91,11 +92,11 @@ export const unlikePost = async (postId: string, userId: string) => {
     
     console.log('Post unliked successfully');
     
-    // Remove Instagram-style like notification (if exists)
+    // Remove unified like notification (if exists)
     if (postOwnerId && postOwnerId !== userId) {
-      console.log('Removing Instagram-style like notification...');
-      await removeInstagramNotification(postOwnerId, userId, 'like', postId);
-      console.log('Instagram-style like notification removed successfully');
+      console.log('Removing unified like notification...');
+      await removeUnifiedNotification(postOwnerId, userId, 'like', postId);
+      console.log('Unified like notification removed successfully');
     }
     
     return true;
