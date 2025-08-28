@@ -1,3 +1,4 @@
+
 import { 
   doc, 
   setDoc, 
@@ -13,6 +14,55 @@ import {
   createFollowAcceptNotification,
   removeUnifiedNotification 
 } from '../unifiedNotificationService';
+
+export const followUser = async (currentUserId: string, targetUserId: string): Promise<boolean> => {
+  try {
+    console.log('Following user', targetUserId, 'by', currentUserId);
+
+    if (!currentUserId || !targetUserId) {
+      throw new Error('Missing user IDs');
+    }
+
+    if (currentUserId === targetUserId) {
+      throw new Error('Cannot follow yourself');
+    }
+
+    // Check if target user is private - if so, send follow request instead
+    const targetUserDoc = await getDoc(doc(db, 'users', targetUserId));
+    if (targetUserDoc.exists() && targetUserDoc.data().isPrivate) {
+      return await sendFollowRequest(currentUserId, targetUserId);
+    }
+
+    // Add to current user's following
+    const followingRef = doc(db, 'users', currentUserId, 'following', targetUserId);
+    await setDoc(followingRef, {
+      followedId: targetUserId,
+      timestamp: serverTimestamp()
+    });
+
+    // Add to target user's followers
+    const followerRef = doc(db, 'users', targetUserId, 'followers', currentUserId);
+    await setDoc(followerRef, {
+      followerId: currentUserId,
+      timestamp: serverTimestamp()
+    });
+
+    // Update counts
+    await updateDoc(doc(db, 'users', currentUserId), {
+      followingCount: increment(1)
+    });
+
+    await updateDoc(doc(db, 'users', targetUserId), {
+      followersCount: increment(1)
+    });
+
+    console.log('User followed successfully');
+    return true;
+  } catch (error) {
+    console.error('Error following user:', error);
+    return false;
+  }
+};
 
 export const sendFollowRequest = async (currentUserId: string, targetUserId: string): Promise<boolean> => {
   try {
@@ -123,6 +173,17 @@ export const unfollowUser = async (currentUserId: string, targetUserId: string):
       throw new Error('Missing user IDs');
     }
 
+    // Check if it's a follow request that needs to be cancelled
+    const followRequestRef = doc(db, 'users', targetUserId, 'followRequests', currentUserId);
+    const followRequestDoc = await getDoc(followRequestRef);
+    
+    if (followRequestDoc.exists()) {
+      // Cancel follow request
+      await deleteDoc(followRequestRef);
+      console.log('Follow request cancelled successfully');
+      return true;
+    }
+
     // Remove from current user's following
     const followingRef = doc(db, 'users', currentUserId, 'following', targetUserId);
     await deleteDoc(followingRef);
@@ -144,6 +205,39 @@ export const unfollowUser = async (currentUserId: string, targetUserId: string):
     return true;
   } catch (error) {
     console.error('Error unfollowing user:', error);
+    return false;
+  }
+};
+
+export const removeFollower = async (currentUserId: string, followerUserId: string): Promise<boolean> => {
+  try {
+    console.log('Removing follower', followerUserId, 'from', currentUserId);
+
+    if (!currentUserId || !followerUserId) {
+      throw new Error('Missing user IDs');
+    }
+
+    // Remove from current user's followers
+    const followerRef = doc(db, 'users', currentUserId, 'followers', followerUserId);
+    await deleteDoc(followerRef);
+
+    // Remove from follower's following
+    const followingRef = doc(db, 'users', followerUserId, 'following', currentUserId);
+    await deleteDoc(followingRef);
+
+    // Update counts
+    await updateDoc(doc(db, 'users', currentUserId), {
+      followersCount: increment(-1)
+    });
+
+    await updateDoc(doc(db, 'users', followerUserId), {
+      followingCount: increment(-1)
+    });
+
+    console.log('Follower removed successfully');
+    return true;
+  } catch (error) {
+    console.error('Error removing follower:', error);
     return false;
   }
 };
