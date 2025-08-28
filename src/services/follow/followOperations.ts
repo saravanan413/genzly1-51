@@ -84,8 +84,18 @@ export const sendFollowRequest = async (currentUserId: string, targetUserId: str
       status: 'pending'
     });
 
-    // Create unified notification
-    await createFollowRequestNotification(targetUserId, currentUserId);
+    console.log('Follow request document created successfully');
+
+    // Create unified notification - this is the critical part that was missing proper error handling
+    try {
+      console.log('Creating follow request notification for user:', targetUserId, 'from:', currentUserId);
+      const notificationId = await createFollowRequestNotification(targetUserId, currentUserId);
+      console.log('Follow request notification created with ID:', notificationId);
+    } catch (notificationError) {
+      console.error('Failed to create follow request notification:', notificationError);
+      // Don't fail the entire operation if notification fails
+      // The follow request is still valid even if notification fails
+    }
 
     console.log('Follow request sent successfully');
     return true;

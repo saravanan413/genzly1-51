@@ -1,4 +1,3 @@
-
 import { 
   collection, 
   addDoc, 
@@ -49,23 +48,30 @@ export const createUnifiedNotification = async (
   }
 ) => {
   try {
+    console.log('=== CREATING UNIFIED NOTIFICATION ===');
+    console.log('Receiver ID:', receiverId);
+    console.log('Sender ID:', senderId);
+    console.log('Type:', type);
+    console.log('Additional data:', additionalData);
+
     // Don't create notification for self-actions
     if (receiverId === senderId) {
       console.log('Skipping self-notification');
       return;
     }
 
-    console.log('Creating notification:', { receiverId, senderId, type, additionalData });
-
     // Get sender profile for notification display
+    console.log('Fetching sender profile for:', senderId);
     const senderProfile = await getUserProfile(senderId);
     if (!senderProfile) {
       console.error('Could not find sender profile for:', senderId);
       return;
     }
+    console.log('Sender profile found:', senderProfile.username);
 
     // Reference to the correct path: /notifications/{receiverId}/items
     const notificationsRef = collection(db, 'notifications', receiverId, 'items');
+    console.log('Notifications collection path:', `notifications/${receiverId}/items`);
 
     // For likes, check for existing notification on same post for aggregation
     if (type === 'like' && additionalData?.postId) {
@@ -101,6 +107,7 @@ export const createUnifiedNotification = async (
 
     // For follow requests, check for duplicates
     if (type === 'follow_request') {
+      console.log('Checking for existing follow request notifications...');
       const existingQuery = query(
         notificationsRef,
         where('senderId', '==', senderId),
@@ -118,6 +125,7 @@ export const createUnifiedNotification = async (
         });
         return existingDoc.id;
       }
+      console.log('No existing follow request notification found, creating new one');
     }
 
     // Create new notification with required fields per security rules
@@ -134,12 +142,21 @@ export const createUnifiedNotification = async (
     };
 
     console.log('Creating notification document with data:', notificationData);
+    console.log('All required fields present:', {
+      hasReceiverId: !!notificationData.receiverId,
+      hasSenderId: !!notificationData.senderId,
+      hasType: !!notificationData.type,
+      hasTimestamp: !!notificationData.timestamp,
+      hasSeen: notificationData.seen !== undefined
+    });
 
     const docRef = await addDoc(notificationsRef, notificationData);
-    console.log(`Notification created successfully with ID:`, docRef.id);
+    console.log('✅ Notification created successfully with ID:', docRef.id);
     return docRef.id;
   } catch (error) {
-    console.error('Error creating unified notification:', error);
+    console.error('❌ Error creating unified notification:', error);
+    console.error('Error code:', error.code);
+    console.error('Error message:', error.message);
     throw error;
   }
 };
