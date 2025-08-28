@@ -57,7 +57,13 @@ export const createUnifiedNotification = async (
     // Don't create notification for self-actions
     if (receiverId === senderId) {
       console.log('Skipping self-notification');
-      return;
+      return null;
+    }
+
+    // Validate required parameters
+    if (!receiverId || !senderId || !type) {
+      console.error('Missing required parameters for notification creation');
+      throw new Error('Missing required parameters');
     }
 
     // Get sender profile for notification display
@@ -65,7 +71,7 @@ export const createUnifiedNotification = async (
     const senderProfile = await getUserProfile(senderId);
     if (!senderProfile) {
       console.error('Could not find sender profile for:', senderId);
-      return;
+      throw new Error('Sender profile not found');
     }
     console.log('Sender profile found:', senderProfile.username);
 
@@ -128,7 +134,7 @@ export const createUnifiedNotification = async (
       console.log('No existing follow request notification found, creating new one');
     }
 
-    // Create new notification with required fields per security rules
+    // Create notification data with all required fields per security rules
     const notificationData = {
       type,
       senderId,
@@ -141,22 +147,47 @@ export const createUnifiedNotification = async (
       ...(additionalData?.commentText && { commentText: additionalData.commentText })
     };
 
-    console.log('Creating notification document with data:', notificationData);
-    console.log('All required fields present:', {
-      hasReceiverId: !!notificationData.receiverId,
-      hasSenderId: !!notificationData.senderId,
-      hasType: !!notificationData.type,
-      hasTimestamp: !!notificationData.timestamp,
-      hasSeen: notificationData.seen !== undefined
+    console.log('Creating notification document with data:', {
+      ...notificationData,
+      timestamp: '[ServerTimestamp]' // Don't log the actual timestamp object
     });
+    
+    console.log('Validating required fields per Firestore rules:');
+    console.log('- receiverId:', !!notificationData.receiverId);
+    console.log('- senderId:', !!notificationData.senderId);
+    console.log('- type:', !!notificationData.type);
+    console.log('- timestamp:', !!notificationData.timestamp);
+    console.log('- seen:', notificationData.seen !== undefined);
+    console.log('- type is valid:', ['like', 'comment', 'follow_request', 'follow_accept'].includes(notificationData.type));
 
+    // Attempt to create the notification
+    console.log('Attempting to create notification document...');
     const docRef = await addDoc(notificationsRef, notificationData);
-    console.log('✅ Notification created successfully with ID:', docRef.id);
+    
+    console.log('✅ Notification created successfully!');
+    console.log('Document ID:', docRef.id);
+    console.log('Collection path:', docRef.parent.path);
+    
     return docRef.id;
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error creating unified notification:', error);
-    console.error('Error code:', error.code);
-    console.error('Error message:', error.message);
+    console.error('Error details:');
+    console.error('- Code:', error.code);
+    console.error('- Message:', error.message);
+    console.error('- Stack:', error.stack);
+    
+    // Log specific error types
+    if (error.code === 'permission-denied') {
+      console.error('PERMISSION DENIED - Check Firestore rules for notifications collection');
+      console.error('Required path: /notifications/{receiverId}/items');
+      console.error('Receiver ID:', receiverId);
+      console.error('Sender ID:', senderId);
+    } else if (error.code === 'invalid-argument') {
+      console.error('INVALID ARGUMENT - Check data structure matches Firestore rules');
+    } else if (error.code === 'not-found') {
+      console.error('NOT FOUND - Collection or document path issue');
+    }
+    
     throw error;
   }
 };
@@ -353,6 +384,10 @@ export const createFollowRequestNotification = async (
   targetUserId: string,
   requesterId: string
 ) => {
+  console.log('🔔 Creating follow request notification');
+  console.log('Target user (receiver):', targetUserId);
+  console.log('Requester (sender):', requesterId);
+  
   return await createUnifiedNotification(targetUserId, requesterId, 'follow_request');
 };
 
