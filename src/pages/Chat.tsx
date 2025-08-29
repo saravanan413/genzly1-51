@@ -1,8 +1,8 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import ChatHeader from '../components/chat/ChatHeader';
-import ChatList from '../components/chat/ChatList';
+import ChatList, { ChatPreview } from '../components/chat/ChatList';
 import NotesBar from '../components/chat/NotesBar';
 import { useAuth } from '../contexts/AuthContext';
 import { 
@@ -111,7 +111,7 @@ const Chat = () => {
   };
 
   // Convert ChatListItem to ChatPreview format expected by ChatList component
-  const chatPreviews = chatList.map(chat => ({
+  const chatPreviews: ChatPreview[] = chatList.map(chat => ({
     chatId: chat.chatId,
     otherUser: {
       id: chat.receiverId,
@@ -129,7 +129,7 @@ const Chat = () => {
   }));
 
   // Convert both individual chats and group chats to unified format
-  const allChats = [
+  const allChats: ChatPreview[] = [
     ...chatPreviews,
     ...userGroups.map(group => ({
       chatId: group.id,
@@ -153,12 +153,6 @@ const Chat = () => {
     const bTime = b.lastMessage?.timestamp || 0;
     return bTime - aTime;
   });
-
-  // Filter chats (including groups) based on search query
-  const filteredChats = allChats.filter(chat =>
-    chat.otherUser.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    chat.otherUser.displayName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   // Show loading only if we're still loading auth or if we have no cache and no data
   const showLoading = authLoading || (loading && !isFromCache);
@@ -259,7 +253,7 @@ const Chat = () => {
             </div>
 
             <ChatList
-              chatPreviews={filteredChats}
+              chatPreviews={allChats}
               loading={showLoading}
               searchQuery={searchQuery}
               currentUserId={currentUser?.uid || ''}

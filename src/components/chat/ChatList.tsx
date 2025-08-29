@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import ChatLoadingState from './ChatLoadingState';
@@ -19,10 +20,11 @@ export interface ChatPreview {
     seen: boolean;
   } | null;
   unreadCount: number;
+  isGroup?: boolean;
 }
 
 interface ChatListProps {
-  chatPreviews: (ChatPreview & { isGroup?: boolean })[];
+  chatPreviews: ChatPreview[];
   loading: boolean;
   searchQuery: string;
   currentUserId: string;

@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { X, Users, Search, Check } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { createGroupChat } from '../../services/chat/groupService';
-import { getUserProfile } from '../../services/chat/userService';
 import { logger } from '../../utils/logger';
 
 interface User {

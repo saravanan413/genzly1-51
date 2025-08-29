@@ -1,17 +1,15 @@
+
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import Home from './pages/Home';
+import Index from './pages/Index';
 import Explore from './pages/Explore';
-import Notifications from './pages/Notifications';
+import Activity from './pages/Activity';
 import Profile from './pages/Profile';
 import EditProfile from './pages/EditProfile';
 import Chat from './pages/Chat';
 import IndividualChat from './pages/IndividualChat';
 import Auth from './pages/Auth';
 import { AuthProvider } from './contexts/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
-import PostDetails from './pages/PostDetails';
-import ReelDetails from './pages/ReelDetails';
 import GroupChat from './pages/GroupChat';
 
 function App() {
@@ -20,16 +18,14 @@ function App() {
       <AuthProvider>
         <Routes>
           <Route path="/auth" element={<Auth />} />
-          <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-          <Route path="/explore" element={<ProtectedRoute><Explore /></ProtectedRoute>} />
-          <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-          <Route path="/profile/:userId" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          <Route path="/edit-profile" element={<ProtectedRoute><EditProfile /></ProtectedRoute>} />
-          <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
-          <Route path="/chat/:userId" element={<ProtectedRoute><IndividualChat /></ProtectedRoute>} />
-          <Route path="/post/:postId" element={<ProtectedRoute><PostDetails /></ProtectedRoute>} />
-          <Route path="/reel/:reelId" element={<ProtectedRoute><ReelDetails /></ProtectedRoute>} />
+          <Route path="/" element={<Index />} />
+          <Route path="/explore" element={<Explore />} />
+          <Route path="/activity" element={<Activity />} />
+          <Route path="/profile/:userId" element={<Profile />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/edit-profile" element={<EditProfile />} />
+          <Route path="/chat" element={<Chat />} />
+          <Route path="/chat/:userId" element={<IndividualChat />} />
           <Route path="/group/:groupId" element={<GroupChat />} />
         </Routes>
       </AuthProvider>
