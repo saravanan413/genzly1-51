@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { collection, query, orderBy, limit, onSnapshot, startAfter, getDocs, where } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -18,6 +19,7 @@ export const useFeedData = ({ pageSize = 10, userId, category }: UseFeedDataProp
   const [hasMore, setHasMore] = useState(true);
   const [lastVisible, setLastVisible] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -57,7 +59,7 @@ export const useFeedData = ({ pageSize = 10, userId, category }: UseFeedDataProp
         const snapshot = await getDocs(q);
 
         if (isMounted) {
-          const newPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
+          const newPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
           setPosts(newPosts);
           setHasMore(newPosts.length === pageSize);
           setLastVisible(snapshot.docs[newPosts.length - 1] || null);
@@ -119,7 +121,7 @@ export const useFeedData = ({ pageSize = 10, userId, category }: UseFeedDataProp
 
       const snapshot = await getDocs(q);
 
-      const newPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Post[];
+      const newPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
       setPosts(prevPosts => [...prevPosts, ...newPosts]);
       setHasMore(newPosts.length === pageSize);
       setLastVisible(snapshot.docs[newPosts.length - 1] || null);
@@ -128,6 +130,61 @@ export const useFeedData = ({ pageSize = 10, userId, category }: UseFeedDataProp
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    setLastVisible(null);
+    
+    try {
+      let q;
+      if (userId) {
+        q = query(
+          collection(db, 'posts'),
+          where('userId', '==', userId),
+          orderBy('timestamp', 'desc'),
+          limit(pageSize)
+        );
+      } else if (category) {
+        q = query(
+          collection(db, 'posts'),
+          where('category', '==', category),
+          orderBy('timestamp', 'desc'),
+          limit(pageSize)
+        );
+      } else {
+        q = query(
+          collection(db, 'posts'),
+          orderBy('timestamp', 'desc'),
+          limit(pageSize)
+        );
+      }
+
+      const snapshot = await getDocs(q);
+      const newPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+      setPosts(newPosts);
+      setHasMore(newPosts.length === pageSize);
+      setLastVisible(snapshot.docs[newPosts.length - 1] || null);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleLike = async (postId: string) => {
+    // Implement like logic
+    console.log('Liking post:', postId);
+  };
+
+  const handleFollow = async (userId: string) => {
+    // Implement follow logic
+    console.log('Following user:', userId);
+  };
+
+  const handleDoubleClick = async (postId: string) => {
+    // Implement double click logic (like)
+    console.log('Double clicked post:', postId);
   };
 
   const createLikeNotificationForPost = async (postOwnerId: string, postId: string) => {
@@ -147,7 +204,13 @@ export const useFeedData = ({ pageSize = 10, userId, category }: UseFeedDataProp
     loading,
     hasMore,
     error,
+    refreshing,
     fetchMoreData,
+    loadMorePosts: fetchMoreData,
+    handleRefresh,
+    handleLike,
+    handleFollow,
+    handleDoubleClick,
     createLikeNotification: createLikeNotificationForPost,
     createCommentNotification: createCommentNotificationForPost,
   };

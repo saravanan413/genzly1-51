@@ -1,6 +1,7 @@
 
 import { useState } from 'react';
 import { useReelsScroll } from '../../hooks/useReelsScroll';
+import { useReelsData } from '../../hooks/useReelsData';
 import ReelItem from './ReelItem';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useNavigate } from 'react-router-dom';
@@ -8,12 +9,11 @@ import { ArrowLeft, MoreHorizontal } from 'lucide-react';
 import ReelActions from './ReelActions';
 import ReelContent from './ReelContent';
 import CommentPage from '../CommentPage';
-import { useReelsActions } from '../../hooks/useReelsActions';
 import Layout from '../Layout';
 
 const ReelsPage = () => {
   const { currentIndex, containerRef } = useReelsScroll();
-  const { reels, loading, hasMore, loadMoreReels, handleLike, handleSave, handleFollow } = useReelsActions();
+  const { reels, loading, hasMore, loadMoreReels, handleLike, handleSave, handleFollow } = useReelsData();
   const [selectedPostForComments, setSelectedPostForComments] = useState<number | null>(null);
   const navigate = useNavigate();
 

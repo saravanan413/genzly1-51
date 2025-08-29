@@ -2,11 +2,28 @@
 import React, { useState } from 'react';
 import { Check, X, User } from 'lucide-react';
 import { acceptFollowRequest, rejectFollowRequest } from '../services/follow';
-import { Notification } from '../services/notifications';
 import { useAuth } from '../contexts/AuthContext';
 
+// Updated interface to match the unified notification structure
 interface FollowRequestNotificationProps {
-  notification: Notification;
+  notification: {
+    id: string;
+    type: string;
+    from?: string;
+    fromUserId?: string;
+    fromUsername?: string;
+    fromProfilePic?: string;
+    timestamp: any;
+    status?: string;
+    seen: boolean;
+    receiverId: string;
+    senderId: string;
+    senderProfile?: {
+      username: string;
+      displayName: string;
+      avatar?: string;
+    };
+  };
   currentUserId: string;
 }
 
