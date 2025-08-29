@@ -14,6 +14,11 @@ export interface Post {
   commentCount: number;
   location?: string;
   category?: string;
+  user: {
+    username: string;
+    displayName: string;
+    avatar?: string;
+  };
 }
 
 export interface Comment {
@@ -24,19 +29,30 @@ export interface Comment {
   timestamp: Date;
 }
 
+export interface ReelUser {
+  name: string;
+  avatar: string;
+  isFollowing: boolean;
+}
+
 export interface Reel {
   id: number;
-  userId: string;
-  username: string;
-  userAvatar?: string;
-  videoURL: string;
+  user: ReelUser;
+  videoUrl: string;
+  videoThumbnail: string;
   caption: string;
-  timestamp: any;
-  likes: string[];
-  likeCount: number;
-  comments: Comment[];
-  commentCount: number;
-  isLiked?: boolean;
-  isSaved?: boolean;
+  likes: number;
+  comments: number;
+  shares: number;
+  music: string;
+  isLiked: boolean;
+  isSaved: boolean;
+  userId?: string;
+  username?: string;
+  userAvatar?: string;
+  videoURL?: string;
+  timestamp?: any;
+  likeCount?: number;
+  commentCount?: number;
   isFollowing?: boolean;
 }

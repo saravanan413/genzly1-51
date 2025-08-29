@@ -27,10 +27,26 @@ export const useReelsData = (pageSize = 10) => {
       );
 
       const snapshot = await getDocs(q);
-      const newReels = snapshot.docs.map(doc => ({
-        id: parseInt(doc.id),
-        ...doc.data()
-      } as Reel));
+      const newReels = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: parseInt(doc.id),
+          user: {
+            name: data.username || 'unknown',
+            avatar: data.userAvatar || '',
+            isFollowing: data.isFollowing || false
+          },
+          videoUrl: data.videoURL || '',
+          videoThumbnail: data.thumbnailURL || '',
+          caption: data.caption || '',
+          likes: data.likeCount || 0,
+          comments: data.commentCount || 0,
+          shares: data.shares || 0,
+          music: data.music || 'Original Audio',
+          isLiked: data.isLiked || false,
+          isSaved: data.isSaved || false
+        } as Reel;
+      });
       
       setReels(newReels);
       setHasMore(newReels.length === pageSize);
@@ -55,10 +71,26 @@ export const useReelsData = (pageSize = 10) => {
       );
 
       const snapshot = await getDocs(q);
-      const newReels = snapshot.docs.map(doc => ({
-        id: parseInt(doc.id),
-        ...doc.data()
-      } as Reel));
+      const newReels = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: parseInt(doc.id),
+          user: {
+            name: data.username || 'unknown',
+            avatar: data.userAvatar || '',
+            isFollowing: data.isFollowing || false
+          },
+          videoUrl: data.videoURL || '',
+          videoThumbnail: data.thumbnailURL || '',
+          caption: data.caption || '',
+          likes: data.likeCount || 0,
+          comments: data.commentCount || 0,
+          shares: data.shares || 0,
+          music: data.music || 'Original Audio',
+          isLiked: data.isLiked || false,
+          isSaved: data.isSaved || false
+        } as Reel;
+      });
       
       setReels(prevReels => [...prevReels, ...newReels]);
       setHasMore(newReels.length === pageSize);

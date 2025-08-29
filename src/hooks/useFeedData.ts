@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { collection, query, orderBy, limit, onSnapshot, startAfter, getDocs, where } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { Post } from '../types';
+import { Post } from '../types/index';
 import { createLikeNotification, createCommentNotification } from '../services/unifiedNotificationService';
 
 interface UseFeedDataProps {
@@ -59,7 +59,30 @@ export const useFeedData = ({ pageSize = 10, userId, category }: UseFeedDataProp
         const snapshot = await getDocs(q);
 
         if (isMounted) {
-          const newPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+          const newPosts = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              userId: data.userId || '',
+              username: data.username || '',
+              userAvatar: data.userAvatar,
+              mediaURL: data.mediaURL || '',
+              mediaType: data.mediaType || 'image',
+              caption: data.caption || '',
+              timestamp: data.timestamp,
+              likes: data.likes || [],
+              likeCount: data.likeCount || 0,
+              comments: data.comments || [],
+              commentCount: data.commentCount || 0,
+              location: data.location,
+              category: data.category,
+              user: {
+                username: data.username || 'unknown',
+                displayName: data.displayName || 'Unknown User',
+                avatar: data.userAvatar
+              }
+            } as Post;
+          });
           setPosts(newPosts);
           setHasMore(newPosts.length === pageSize);
           setLastVisible(snapshot.docs[newPosts.length - 1] || null);
@@ -121,7 +144,30 @@ export const useFeedData = ({ pageSize = 10, userId, category }: UseFeedDataProp
 
       const snapshot = await getDocs(q);
 
-      const newPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+      const newPosts = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          userId: data.userId || '',
+          username: data.username || '',
+          userAvatar: data.userAvatar,
+          mediaURL: data.mediaURL || '',
+          mediaType: data.mediaType || 'image',
+          caption: data.caption || '',
+          timestamp: data.timestamp,
+          likes: data.likes || [],
+          likeCount: data.likeCount || 0,
+          comments: data.comments || [],
+          commentCount: data.commentCount || 0,
+          location: data.location,
+          category: data.category,
+          user: {
+            username: data.username || 'unknown',
+            displayName: data.displayName || 'Unknown User',
+            avatar: data.userAvatar
+          }
+        } as Post;
+      });
       setPosts(prevPosts => [...prevPosts, ...newPosts]);
       setHasMore(newPosts.length === pageSize);
       setLastVisible(snapshot.docs[newPosts.length - 1] || null);
@@ -161,7 +207,30 @@ export const useFeedData = ({ pageSize = 10, userId, category }: UseFeedDataProp
       }
 
       const snapshot = await getDocs(q);
-      const newPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+      const newPosts = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          userId: data.userId || '',
+          username: data.username || '',
+          userAvatar: data.userAvatar,
+          mediaURL: data.mediaURL || '',
+          mediaType: data.mediaType || 'image',
+          caption: data.caption || '',
+          timestamp: data.timestamp,
+          likes: data.likes || [],
+          likeCount: data.likeCount || 0,
+          comments: data.comments || [],
+          commentCount: data.commentCount || 0,
+          location: data.location,
+          category: data.category,
+          user: {
+            username: data.username || 'unknown',
+            displayName: data.displayName || 'Unknown User',
+            avatar: data.userAvatar
+          }
+        } as Post;
+      });
       setPosts(newPosts);
       setHasMore(newPosts.length === pageSize);
       setLastVisible(snapshot.docs[newPosts.length - 1] || null);
