@@ -2,6 +2,7 @@ import React from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import ChatLoadingState from './ChatLoadingState';
 import ChatEmptyState from './ChatEmptyState';
+import { Users } from 'lucide-react';
 
 export interface ChatPreview {
   chatId: string;
@@ -21,7 +22,7 @@ export interface ChatPreview {
 }
 
 interface ChatListProps {
-  chatPreviews: ChatPreview[];
+  chatPreviews: (ChatPreview & { isGroup?: boolean })[];
   loading: boolean;
   searchQuery: string;
   currentUserId: string;
@@ -83,7 +84,12 @@ const ChatList: React.FC<ChatListProps> = ({
                 className="w-14 h-14 rounded-full object-cover"
                 onError={handleImageError}
               />
-              {isUnread && (
+              {chat.isGroup && (
+                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                  <Users className="w-3 h-3 text-primary-foreground" />
+                </div>
+              )}
+              {isUnread && !chat.isGroup && (
                 <div className="absolute -top-1 -right-1 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
                   <span className="text-xs text-primary-foreground font-medium">
                     {chat.unreadCount > 9 ? '9+' : chat.unreadCount}

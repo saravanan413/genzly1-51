@@ -11,6 +11,9 @@ import {
   clearCachedChatList 
 } from '../services/chat/chatListService';
 import { logger } from '../utils/logger';
+import { Plus } from 'lucide-react';
+import CreateGroupModal from '../components/chat/CreateGroupModal';
+import { useGroupChat } from '../hooks/useGroupChat';
 
 const Chat = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -19,8 +22,10 @@ const Chat = () => {
   const [loading, setLoading] = useState(true);
   const [isFromCache, setIsFromCache] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
   const navigate = useNavigate();
   const { currentUser, loading: authLoading } = useAuth();
+  const { userGroups } = useGroupChat();
 
   // Subscribe to user's chat list with real-time updates and caching
   useEffect(() => {
@@ -100,6 +105,11 @@ const Chat = () => {
     navigate('/explore');
   };
 
+  const handleGroupCreated = (groupId: string) => {
+    logger.debug('Group created, navigating to group chat', { groupId });
+    navigate(`/group/${groupId}`);
+  };
+
   // Convert ChatListItem to ChatPreview format expected by ChatList component
   const chatPreviews = chatList.map(chat => ({
     chatId: chat.chatId,
@@ -117,6 +127,38 @@ const Chat = () => {
     } : null,
     unreadCount: chat.seen ? 0 : 1
   }));
+
+  // Convert both individual chats and group chats to unified format
+  const allChats = [
+    ...chatPreviews,
+    ...userGroups.map(group => ({
+      chatId: group.id,
+      otherUser: {
+        id: group.id,
+        username: group.name,
+        displayName: group.name,
+        avatar: group.avatar
+      },
+      lastMessage: group.lastMessage ? {
+        text: group.lastMessage.text,
+        timestamp: group.lastMessage.timestamp?.toDate?.()?.getTime() || Date.now(),
+        senderId: group.lastMessage.senderId,
+        seen: group.lastMessage.seen
+      } : null,
+      unreadCount: 0,
+      isGroup: true
+    }))
+  ].sort((a, b) => {
+    const aTime = a.lastMessage?.timestamp || 0;
+    const bTime = b.lastMessage?.timestamp || 0;
+    return bTime - aTime;
+  });
+
+  // Filter chats (including groups) based on search query
+  const filteredChats = allChats.filter(chat =>
+    chat.otherUser.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    chat.otherUser.displayName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   // Show loading only if we're still loading auth or if we have no cache and no data
   const showLoading = authLoading || (loading && !isFromCache);
@@ -170,7 +212,27 @@ const Chat = () => {
       <div className="w-full bg-background dark:bg-gray-900">
         <div className="w-full max-w-2xl mx-auto">
           <div className="p-4 md:p-6">
-            <ChatHeader onNewChat={handleNewChat} />
+            {/* Updated ChatHeader with group button */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4">
+                <h1 className="text-2xl font-bold">Messages</h1>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowCreateGroup(true)}
+                  className="p-2 hover:bg-muted rounded-full transition-colors"
+                  title="Create Group Chat"
+                >
+                  <Plus className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={handleNewChat}
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                >
+                  New Chat
+                </button>
+              </div>
+            </div>
           </div>
           
           {/* Notes Bar */}
@@ -197,16 +259,30 @@ const Chat = () => {
             </div>
 
             <ChatList
-              chatPreviews={chatPreviews}
+              chatPreviews={filteredChats}
               loading={showLoading}
               searchQuery={searchQuery}
-              currentUserId={currentUser.uid}
-              onChatClick={handleChatClick}
+              currentUserId={currentUser?.uid || ''}
+              onChatClick={(receiverId) => {
+                const chat = allChats.find(c => c.otherUser.id === receiverId);
+                if (chat?.isGroup) {
+                  navigate(`/group/${receiverId}`);
+                } else {
+                  handleChatClick(receiverId);
+                }
+              }}
               onDoubleTap={handleDoubleTap}
             />
           </div>
         </div>
       </div>
+
+      {/* Create Group Modal */}
+      <CreateGroupModal
+        isOpen={showCreateGroup}
+        onClose={() => setShowCreateGroup(false)}
+        onGroupCreated={handleGroupCreated}
+      />
     </Layout>
   );
 };
