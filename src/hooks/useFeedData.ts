@@ -12,6 +12,24 @@ interface UseFeedDataProps {
   category?: string;
 }
 
+// Define the Firestore document data structure
+interface FirestorePostData {
+  userId: string;
+  username: string;
+  userAvatar?: string;
+  mediaURL: string;
+  mediaType: 'image' | 'video';
+  caption: string;
+  timestamp: any;
+  likes: string[];
+  likeCount: number;
+  comments: any[];
+  commentCount: number;
+  location?: string;
+  category?: string;
+  displayName?: string;
+}
+
 export const useFeedData = ({ pageSize = 10, userId, category }: UseFeedDataProps = {}) => {
   const { currentUser } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
@@ -60,7 +78,7 @@ export const useFeedData = ({ pageSize = 10, userId, category }: UseFeedDataProp
 
         if (isMounted) {
           const newPosts = snapshot.docs.map(doc => {
-            const data = doc.data();
+            const data = doc.data() as FirestorePostData;
             return {
               id: doc.id,
               userId: data.userId || '',
@@ -145,7 +163,7 @@ export const useFeedData = ({ pageSize = 10, userId, category }: UseFeedDataProp
       const snapshot = await getDocs(q);
 
       const newPosts = snapshot.docs.map(doc => {
-        const data = doc.data();
+        const data = doc.data() as FirestorePostData;
         return {
           id: doc.id,
           userId: data.userId || '',
@@ -208,7 +226,7 @@ export const useFeedData = ({ pageSize = 10, userId, category }: UseFeedDataProp
 
       const snapshot = await getDocs(q);
       const newPosts = snapshot.docs.map(doc => {
-        const data = doc.data();
+        const data = doc.data() as FirestorePostData;
         return {
           id: doc.id,
           userId: data.userId || '',
@@ -272,7 +290,7 @@ export const useFeedData = ({ pageSize = 10, userId, category }: UseFeedDataProp
     posts,
     loading,
     hasMore,
-    error,
+    error: error || '',
     refreshing,
     fetchMoreData,
     loadMorePosts: fetchMoreData,

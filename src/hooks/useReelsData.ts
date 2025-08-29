@@ -4,6 +4,23 @@ import { collection, query, orderBy, limit, getDocs, startAfter } from 'firebase
 import { db } from '../config/firebase';
 import { Reel } from '../types';
 
+// Define the Firestore document data structure for reels
+interface FirestoreReelData {
+  username: string;
+  userAvatar?: string;
+  videoURL: string;
+  thumbnailURL?: string;
+  caption: string;
+  likeCount: number;
+  commentCount: number;
+  shares?: number;
+  music?: string;
+  isLiked?: boolean;
+  isSaved?: boolean;
+  isFollowing?: boolean;
+  timestamp: any;
+}
+
 export const useReelsData = (pageSize = 10) => {
   const [reels, setReels] = useState<Reel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,9 +45,9 @@ export const useReelsData = (pageSize = 10) => {
 
       const snapshot = await getDocs(q);
       const newReels = snapshot.docs.map(doc => {
-        const data = doc.data();
+        const data = doc.data() as FirestoreReelData;
         return {
-          id: parseInt(doc.id),
+          id: parseInt(doc.id) || Math.floor(Math.random() * 1000000),
           user: {
             name: data.username || 'unknown',
             avatar: data.userAvatar || '',
@@ -44,7 +61,16 @@ export const useReelsData = (pageSize = 10) => {
           shares: data.shares || 0,
           music: data.music || 'Original Audio',
           isLiked: data.isLiked || false,
-          isSaved: data.isSaved || false
+          isSaved: data.isSaved || false,
+          // Additional properties for compatibility
+          userId: doc.id,
+          username: data.username,
+          userAvatar: data.userAvatar,
+          videoURL: data.videoURL,
+          timestamp: data.timestamp,
+          likeCount: data.likeCount || 0,
+          commentCount: data.commentCount || 0,
+          isFollowing: data.isFollowing
         } as Reel;
       });
       
@@ -72,9 +98,9 @@ export const useReelsData = (pageSize = 10) => {
 
       const snapshot = await getDocs(q);
       const newReels = snapshot.docs.map(doc => {
-        const data = doc.data();
+        const data = doc.data() as FirestoreReelData;
         return {
-          id: parseInt(doc.id),
+          id: parseInt(doc.id) || Math.floor(Math.random() * 1000000),
           user: {
             name: data.username || 'unknown',
             avatar: data.userAvatar || '',
@@ -88,7 +114,16 @@ export const useReelsData = (pageSize = 10) => {
           shares: data.shares || 0,
           music: data.music || 'Original Audio',
           isLiked: data.isLiked || false,
-          isSaved: data.isSaved || false
+          isSaved: data.isSaved || false,
+          // Additional properties for compatibility
+          userId: doc.id,
+          username: data.username,
+          userAvatar: data.userAvatar,
+          videoURL: data.videoURL,
+          timestamp: data.timestamp,
+          likeCount: data.likeCount || 0,
+          commentCount: data.commentCount || 0,
+          isFollowing: data.isFollowing
         } as Reel;
       });
       
