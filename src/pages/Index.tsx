@@ -10,6 +10,7 @@ import PullToRefresh from '../components/feed/PullToRefresh';
 import { useIntersectionObserver } from '../hooks/useIntersectionObserver';
 import { useFeedData } from '../hooks/useFeedData';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
+import { Post } from '../types/index';
 
 const Index = () => {
   const [selectedPostForComments, setSelectedPostForComments] = useState<string | null>(null);
@@ -49,6 +50,14 @@ const Index = () => {
     setSelectedPostForShare(postId);
   };
 
+  // Convert Post to the format expected by FeedPost component
+  const convertPostForFeedPost = (post: Post) => {
+    return {
+      ...post,
+      likes: post.likeCount || 0 // Convert likes array to count for FeedPost component
+    };
+  };
+
   return (
     <Layout>
       <div 
@@ -73,7 +82,7 @@ const Index = () => {
                 posts.map((post) => (
                   <FeedPost
                     key={post.id}
-                    post={post}
+                    post={convertPostForFeedPost(post) as any}
                     onLike={handleLike}
                     onFollow={handleFollow}
                     onDoubleClick={handleDoubleClick}
